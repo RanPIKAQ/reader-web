@@ -21,16 +21,64 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
   const [chapterContent, setChapterContent] = useState('');
   const [fullText, setFullText] = useState('');
 
+  // 卷折叠状态
+  const [collapsedVolumes, setCollapsedVolumes] = useState({});
+
+  // 使用 ref 存储最新值，避免依赖问题
+  const fullTextRef = useRef('');
+  const flatChaptersRef = useRef([]);
+  const onProgressUpdateRef = useRef(onProgressUpdate);
+
+  // 保持 ref 更新
+  useEffect(() => {
+    fullTextRef.current = fullText;
+    flatChaptersRef.current = flatChapters;
+    onProgressUpdateRef.current = onProgressUpdate;
+  }, [fullText, flatChapters, onProgressUpdate]);
+
+  // 切换单个卷的折叠状态
+  const toggleVolume = useCallback((volId) => {
+    setCollapsedVolumes(prev => ({
+      ...prev,
+      [volId]: !prev[volId]
+    }));
+  }, []);
+
+  // 全部展开
+  const expandAll = useCallback(() => {
+    setCollapsedVolumes(prev => {
+      const next = { ...prev };
+      volumes.forEach(vol => {
+        next[vol.id] = false;
+      });
+      return next;
+    });
+  }, [volumes]);
+
+  // 全部折叠
+  const collapseAll = useCallback(() => {
+    setCollapsedVolumes(prev => {
+      const next = { ...prev };
+      volumes.forEach(vol => {
+        next[vol.id] = true;
+      });
+      return next;
+    });
+  }, [volumes]);
+
   // TXT 模式下加载章节内容
   const loadTxtChapter = useCallback(async (chapterIndex) => {
-    if (!fullText || flatChapters.length === 0) return;
-    if (chapterIndex < 0 || chapterIndex >= flatChapters.length) return;
+    const text = fullTextRef.current;
+    const chapters = flatChaptersRef.current;
+    const progressCb = onProgressUpdateRef.current;
 
-    const chapter = flatChapters[chapterIndex];
+    if (!text || chapters.length === 0) return chapterIndex;
+    if (chapterIndex < 0 || chapterIndex >= chapters.length) return chapterIndex;
+
+    const chapter = chapters[chapterIndex];
     if (chapter) {
-      const content = getChapterContent(fullText, chapter);
+      const content = getChapterContent(text, chapter);
       setChapterContent(content);
-      setCurrentChapterIndex(chapterIndex);
 
       // 滚动到章开头
       if (txtContentRef.current) {
@@ -40,27 +88,32 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
       // 保存阅读进度
       const progress = {
         chapterId: chapter.id,
-        percentage: ((chapterIndex + 1) / flatChapters.length) * 100,
+        percentage: ((chapterIndex + 1) / chapters.length) * 100,
       };
-      onProgressUpdate(progress);
+      progressCb(progress);
     }
-  }, [fullText, flatChapters, onProgressUpdate]);
+    return chapterIndex;
+  }, []);
 
   // 上一页（章节模式）
   const prevChapter = useCallback(() => {
-    if (currentChapterIndex > 0) {
-      loadTxtChapter(currentChapterIndex - 1);
+    const newIndex = currentChapterIndex - 1;
+    if (newIndex >= 0) {
+      loadTxtChapter(newIndex);
+      setCurrentChapterIndex(newIndex);
     }
   }, [currentChapterIndex, loadTxtChapter]);
 
   // 下一页（章节模式）
   const nextChapter = useCallback(() => {
-    if (currentChapterIndex < flatChapters.length - 1) {
-      loadTxtChapter(currentChapterIndex + 1);
+    const newIndex = currentChapterIndex + 1;
+    if (newIndex < flatChaptersRef.current.length) {
+      loadTxtChapter(newIndex);
+      setCurrentChapterIndex(newIndex);
     }
-  }, [currentChapterIndex, flatChapters.length, loadTxtChapter]);
+  }, [currentChapterIndex, loadTxtChapter]);
 
-  // 加载书籍（只在首次或 bookId 变化时调用）
+  // 加载书籍
   const loadBook = useCallback(async () => {
     const bookInfo = await getBookData(bookId);
     if (!bookInfo) {
@@ -71,35 +124,72 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
     setBookMeta(bookInfo);
 
     if (bookInfo.type === 'txt') {
-      // 加载完整文本和章节信息
       const text = await getTxtContent(bookId);
-      if (text) {
-        const chapters = bookInfo.flatChapters || [];
-        const vols = bookInfo.volumes || [];
+      if (!text) {
+        setLoading(false);
+        return;
+      }
 
-        setFullText(text);
-        setFlatChapters(chapters);
-        setVolumes(vols);
-        setToc(chapters.map(ch => ({ label: ch.title, href: ch.id })));
+      // 兼容旧数据：如果没有 flatChapters，尝试从 chapters 转换
+      let chapters = bookInfo.flatChapters || bookInfo.chapters || [];
+      let vols = bookInfo.volumes || [];
 
-        // 恢复阅读进度
-        const savedProgress = await getReadingProgress(bookId);
-        let startChapterIndex = 0;
-        if (savedProgress?.chapterId) {
-          const chapterIndex = chapters.findIndex(ch => ch.id === savedProgress.chapterId);
-          if (chapterIndex >= 0) {
-            startChapterIndex = chapterIndex;
-          }
-        }
+      // 如果既没有 volumes 也没有 flatChapters，创建一个默认卷
+      if (chapters.length === 0) {
+        chapters = [{
+          id: 'ch_0',
+          title: '全文',
+          start: 0,
+          end: text.length
+        }];
+        vols = [{
+          id: 'vol_0',
+          title: '全文',
+          start: 0,
+          end: text.length,
+          children: chapters
+        }];
+      } else if (vols.length === 0) {
+        // 有章节但没有卷结构，创建一个默认卷
+        vols = [{
+          id: 'vol_0',
+          title: '正文',
+          start: 0,
+          end: text.length,
+          children: chapters
+        }];
+      }
 
-        // 加载第一章或上次阅读的章节
-        setCurrentChapterIndex(startChapterIndex);
-        const chapter = chapters[startChapterIndex];
-        if (chapter) {
-          const content = getChapterContent(text, chapter);
-          setChapterContent(content);
+      setFullText(text);
+      setFlatChapters(chapters);
+      setVolumes(vols);
+      setToc(chapters.map(ch => ({ label: ch.title, href: ch.id })));
+
+      // 初始化折叠状态（默认全部折叠）
+      const initialCollapsed = {};
+      vols.forEach(vol => {
+        initialCollapsed[vol.id] = true;
+      });
+      setCollapsedVolumes(initialCollapsed);
+
+      // 恢复阅读进度
+      const savedProgress = await getReadingProgress(bookId);
+      let startChapterIndex = 0;
+      if (savedProgress?.chapterId) {
+        const chapterIndex = chapters.findIndex(ch => ch.id === savedProgress.chapterId);
+        if (chapterIndex >= 0) {
+          startChapterIndex = chapterIndex;
         }
       }
+
+      // 加载第一章或上次阅读的章节
+      const chapter = chapters[startChapterIndex];
+      if (chapter) {
+        const content = getChapterContent(text, chapter);
+        setChapterContent(content);
+        setCurrentChapterIndex(startChapterIndex);
+      }
+
       setLoading(false);
       return;
     }
@@ -149,6 +239,25 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
       }
     };
   }, [loadBook]);
+
+  // 键盘左右键监听
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showToc) return;
+      if (!bookMeta?.type === 'txt') return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevChapter();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextChapter();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showToc, bookMeta, prevChapter, nextChapter]);
 
   const applyStyles = useCallback(() => {
     if (renditionRef.current) {
@@ -208,22 +317,37 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
     if (isTxt && volumes.length > 0) {
       return (
         <nav className="toc-list">
-          {volumes.map((vol) => (
-            <div key={vol.id} className="toc-volume">
-              <div className="toc-volume-title">{vol.title}</div>
-              <div className="toc-chapters">
-                {vol.children.map((ch) => (
-                  <a
-                    key={ch.id}
-                    className={`toc-item toc-chapter ${flatChapters[currentChapterIndex]?.id === ch.id ? 'active' : ''}`}
-                    onClick={() => handleTocClick(ch.id)}
-                  >
-                    {ch.title}
-                  </a>
-                ))}
+          <div className="toc-actions">
+            <button className="toc-action-btn" onClick={expandAll}>全部展开</button>
+            <button className="toc-action-btn" onClick={collapseAll}>全部折叠</button>
+          </div>
+          {volumes.map((vol) => {
+            const isCollapsed = collapsedVolumes[vol.id];
+            return (
+              <div key={vol.id} className="toc-volume">
+                <div
+                  className={`toc-volume-title ${isCollapsed ? 'collapsed' : 'expanded'}`}
+                  onClick={() => toggleVolume(vol.id)}
+                >
+                  <span className="toc-arrow">{isCollapsed ? '▶' : '▼'}</span>
+                  {vol.title}
+                </div>
+                {!isCollapsed && (
+                  <div className="toc-chapters">
+                    {vol.children.map((ch) => (
+                      <a
+                        key={ch.id}
+                        className={`toc-item toc-chapter ${flatChapters[currentChapterIndex]?.id === ch.id ? 'active' : ''}`}
+                        onClick={() => handleTocClick(ch.id)}
+                      >
+                        {ch.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
       );
     }
