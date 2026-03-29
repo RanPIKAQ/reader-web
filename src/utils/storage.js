@@ -77,6 +77,7 @@ export const DEFAULT_SETTINGS = {
   lineHeight: 1.6,
   theme: 'day',
   pageMode: 'scroll',
+  contentWidth: 100, // 内容宽度百分比
 };
 
 export default storage;

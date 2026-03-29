@@ -11,30 +11,45 @@ function Reader() {
   const { settings, updateSettings } = useSettings();
   const { progress, updateProgress } = useReadingProgress(bookId);
   const [showStylePanel, setShowStylePanel] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
 
   const handleProgressUpdate = useCallback((newProgress) => {
     updateProgress(newProgress);
   }, [updateProgress]);
 
+  const toggleZenMode = useCallback(() => {
+    setZenMode(prev => !prev);
+  }, []);
+
   return (
-    <div className={`reader-page theme-${settings.theme}`}>
-      <header className="reader-header">
-        <button className="btn-back" onClick={() => navigate('/')}>
-          返回
-        </button>
-        <button
-          className="btn-settings"
-          onClick={() => setShowStylePanel(true)}
-        >
-          设置
-        </button>
-      </header>
+    <div className={`reader-page theme-${settings.theme} ${zenMode ? 'zen-mode-active' : ''}`}>
+      {!zenMode && (
+        <header className="reader-header">
+          <button className="btn-back" onClick={() => navigate('/')}>
+            返回
+          </button>
+          <div className="header-actions">
+            <button className="btn-zen" onClick={toggleZenMode}>
+              禅
+            </button>
+            <button
+              className="btn-settings"
+              onClick={() => setShowStylePanel(true)}
+            >
+              设置
+            </button>
+          </div>
+        </header>
+      )}
 
       <main className="reader-main">
         <BookReader
           bookId={bookId}
           settings={settings}
           onProgressUpdate={handleProgressUpdate}
+          onUpdateSettings={updateSettings}
+          zenMode={zenMode}
+          onToggleZenMode={toggleZenMode}
         />
       </main>
 

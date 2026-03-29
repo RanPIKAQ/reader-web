@@ -3,7 +3,7 @@ import epubjs from 'epubjs';
 import { getBookData, getReadingProgress, getTxtContent } from '../utils/storage';
 import { getChapterContent } from '../hooks/useBookParser';
 
-function BookReader({ bookId, settings, onProgressUpdate }) {
+function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMode }) {
   const containerRef = useRef(null);
   const txtContentRef = useRef(null);
   const renditionRef = useRef(null);
@@ -244,7 +244,8 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (showToc) return;
-      if (!bookMeta?.type === 'txt') return;
+      if (zenMode) return;
+      if (bookMeta?.type !== 'txt') return;
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -252,12 +253,16 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         nextChapter();
+      } else if (e.key === 'Escape') {
+        if (zenMode) {
+          onToggleZenMode?.();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToc, bookMeta, prevChapter, nextChapter]);
+  }, [showToc, zenMode, bookMeta, prevChapter, nextChapter, onToggleZenMode]);
 
   const applyStyles = useCallback(() => {
     if (renditionRef.current) {
@@ -295,6 +300,8 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
     fontFamily: settings.fontFamily,
     fontWeight: settings.fontWeight,
     lineHeight: settings.lineHeight,
+    width: `${settings.contentWidth || 100}%`,
+    maxWidth: '100%',
   };
 
   const isTxt = bookMeta?.type === 'txt';
@@ -369,44 +376,58 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
   };
 
   return (
-    <div className={`reader-container ${isTxt ? 'txt-reader' : settings.theme}`}>
+    <div className={`reader-container ${isTxt ? 'txt-reader' : settings.theme} ${zenMode ? 'zen-mode' : ''}`}>
       {loading ? (
         <div className="reader-loading">加载中...</div>
       ) : isTxt ? (
-        <div ref={txtContentRef} className="txt-content" style={readerStyle}>
+        <div
+          ref={txtContentRef}
+          className="txt-content"
+          style={readerStyle}
+        >
           {chapterContent}
         </div>
       ) : (
         <div ref={containerRef} className="epub-container" />
       )}
 
-      <div className="reader-footer">
-        <button className="footer-btn" onClick={() => setShowToc(true)}>
-          目录
+      {/* 禅模式退出按钮 - 右下角 */}
+      {zenMode && (
+        <button className="zen-mode-btn" onClick={onToggleZenMode}>
+          ☯
         </button>
-        <div className="progress-info">
-          {isTxt
-            ? flatChapters[currentChapterIndex]?.title
-            : (currentLocation && `${currentLocation.index + 1} / ${toc.length}`)}
-        </div>
-        {isTxt ? (
-          <>
-            <button className="footer-btn" onClick={prevChapter} disabled={currentChapterIndex === 0}>
-              上一章
-            </button>
-            <button className="footer-btn" onClick={nextChapter} disabled={currentChapterIndex >= flatChapters.length - 1}>
-              下一章
-            </button>
-          </>
-        ) : (
-          <>
-            <button className="footer-btn" onClick={prevPage}>上一页</button>
-            <button className="footer-btn" onClick={nextPage}>下一页</button>
-          </>
-        )}
-      </div>
+      )}
 
-      {showToc && (
+      {/* 非禅模式显示底部栏 */}
+      {!zenMode && (
+        <div className="reader-footer">
+          <button className="footer-btn" onClick={() => setShowToc(true)}>
+            目录
+          </button>
+          <div className="progress-info">
+            {isTxt
+              ? flatChapters[currentChapterIndex]?.title
+              : (currentLocation && `${currentLocation.index + 1} / ${toc.length}`)}
+          </div>
+          {isTxt ? (
+            <>
+              <button className="footer-btn" onClick={prevChapter} disabled={currentChapterIndex === 0}>
+                上一章
+              </button>
+              <button className="footer-btn" onClick={nextChapter} disabled={currentChapterIndex >= flatChapters.length - 1}>
+                下一章
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="footer-btn" onClick={prevPage}>上一页</button>
+              <button className="footer-btn" onClick={nextPage}>下一页</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {showToc && !zenMode && (
         <div className="toc-overlay" onClick={() => setShowToc(false)}>
           <div className="toc-panel" onClick={(e) => e.stopPropagation()}>
             <div className="toc-header">

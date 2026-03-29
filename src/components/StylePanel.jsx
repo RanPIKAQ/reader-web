@@ -15,6 +15,13 @@ const FONT_WEIGHTS = [
   { label: '粗', value: 700 },
 ];
 const LINE_HEIGHTS = [1.4, 1.6, 1.8, 2.0, 2.2];
+const CONTENT_WIDTHS = [
+  { label: '100%', value: 100 },
+  { label: '90%', value: 90 },
+  { label: '80%', value: 80 },
+  { label: '70%', value: 70 },
+  { label: '60%', value: 60 },
+];
 
 function StylePanel({ settings, onUpdate, onClose }) {
   const [activeTab, setActiveTab] = useState('font');
@@ -39,6 +46,12 @@ function StylePanel({ settings, onUpdate, onClose }) {
             onClick={() => setActiveTab('theme')}
           >
             主题
+          </button>
+          <button
+            className={activeTab === 'layout' ? 'active' : ''}
+            onClick={() => setActiveTab('layout')}
+          >
+            布局
           </button>
         </div>
 
@@ -132,6 +145,25 @@ function StylePanel({ settings, onUpdate, onClose }) {
                   <span className="theme-preview sepia-preview" />
                   <span>护眼</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'layout' && (
+            <div className="settings-group">
+              <div className="setting-item">
+                <label>内容宽度: {settings.contentWidth || 100}%</label>
+                <div className="width-options">
+                  {CONTENT_WIDTHS.map((w) => (
+                    <button
+                      key={w.value}
+                      className={`width-btn ${settings.contentWidth === w.value ? 'active' : ''}`}
+                      onClick={() => onUpdate({ contentWidth: w.value })}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

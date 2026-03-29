@@ -271,12 +271,24 @@ button {
 .reader-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
 
 .reader-header button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-zen {
   padding: var(--spacing-sm) var(--spacing-md);
   color: var(--text-primary);
   font-size: 14px;
@@ -309,6 +321,58 @@ button {
 .reader-container.theme-sepia {
   --bg-primary: #f4ecd8;
   --text-primary: #5b4636;
+}
+
+/* 禅模式 */
+.reader-page.zen-mode-active .reader-header {
+  display: none;
+}
+
+.reader-page.zen-mode-active .reader-main {
+  height: 100vh;
+}
+
+.reader-container.zen-mode {
+  justify-content: center;
+  align-items: center;
+}
+
+.reader-container.zen-mode .txt-content {
+  margin: 0 auto;
+}
+
+.zen-mode-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+
+.zen-mode-btn:hover {
+  opacity: 0.8;
+}
+
+/* 内容宽度 */
+.txt-content {
+  transition: width 0.3s ease;
+  margin: 0 auto;
+}
+
+.footer-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-primary);
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .epub-container {
@@ -651,4 +715,25 @@ button {
 .sepia-preview {
   background: #f4ecd8;
   border: 1px solid #d4c4a8;
+}
+
+/* 布局设置 */
+.width-options {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.width-btn {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: var(--border-radius-sm);
+  font-size: 14px;
+  transition: background var(--transition-fast);
+}
+
+.width-btn.active {
+  background: var(--accent-color);
+  color: white;
 }
