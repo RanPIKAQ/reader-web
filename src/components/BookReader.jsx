@@ -9,36 +9,42 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
   const renditionRef = useRef(null);
 
   const [toc, setToc] = useState([]);
+  const [volumes, setVolumes] = useState([]);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [showToc, setShowToc] = useState(false);
   const [bookMeta, setBookMeta] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // TXT 章节相关状态
-  const [chapters, setChapters] = useState([]);
+  const [flatChapters, setFlatChapters] = useState([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [chapterContent, setChapterContent] = useState('');
   const [fullText, setFullText] = useState('');
 
   // TXT 模式下加载章节内容
   const loadTxtChapter = useCallback(async (chapterIndex) => {
-    if (!fullText || chapters.length === 0) return;
-    if (chapterIndex < 0 || chapterIndex >= chapters.length) return;
+    if (!fullText || flatChapters.length === 0) return;
+    if (chapterIndex < 0 || chapterIndex >= flatChapters.length) return;
 
-    const chapter = chapters[chapterIndex];
+    const chapter = flatChapters[chapterIndex];
     if (chapter) {
       const content = getChapterContent(fullText, chapter);
       setChapterContent(content);
       setCurrentChapterIndex(chapterIndex);
 
+      // 滚动到章开头
+      if (txtContentRef.current) {
+        txtContentRef.current.scrollTop = 0;
+      }
+
       // 保存阅读进度
       const progress = {
         chapterId: chapter.id,
-        percentage: ((chapterIndex + 1) / chapters.length) * 100,
+        percentage: ((chapterIndex + 1) / flatChapters.length) * 100,
       };
       onProgressUpdate(progress);
     }
-  }, [fullText, chapters, onProgressUpdate]);
+  }, [fullText, flatChapters, onProgressUpdate]);
 
   // 上一页（章节模式）
   const prevChapter = useCallback(() => {
@@ -49,10 +55,10 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
 
   // 下一页（章节模式）
   const nextChapter = useCallback(() => {
-    if (currentChapterIndex < chapters.length - 1) {
+    if (currentChapterIndex < flatChapters.length - 1) {
       loadTxtChapter(currentChapterIndex + 1);
     }
-  }, [currentChapterIndex, chapters.length, loadTxtChapter]);
+  }, [currentChapterIndex, flatChapters.length, loadTxtChapter]);
 
   // 加载书籍（只在首次或 bookId 变化时调用）
   const loadBook = useCallback(async () => {
@@ -67,16 +73,20 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
     if (bookInfo.type === 'txt') {
       // 加载完整文本和章节信息
       const text = await getTxtContent(bookId);
-      if (text && bookInfo.chapters) {
+      if (text) {
+        const chapters = bookInfo.flatChapters || [];
+        const vols = bookInfo.volumes || [];
+
         setFullText(text);
-        setChapters(bookInfo.chapters);
-        setToc(bookInfo.chapters.map(ch => ({ label: ch.title, href: ch.id })));
+        setFlatChapters(chapters);
+        setVolumes(vols);
+        setToc(chapters.map(ch => ({ label: ch.title, href: ch.id })));
 
         // 恢复阅读进度
         const savedProgress = await getReadingProgress(bookId);
         let startChapterIndex = 0;
         if (savedProgress?.chapterId) {
-          const chapterIndex = bookInfo.chapters.findIndex(ch => ch.id === savedProgress.chapterId);
+          const chapterIndex = chapters.findIndex(ch => ch.id === savedProgress.chapterId);
           if (chapterIndex >= 0) {
             startChapterIndex = chapterIndex;
           }
@@ -84,7 +94,7 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
 
         // 加载第一章或上次阅读的章节
         setCurrentChapterIndex(startChapterIndex);
-        const chapter = bookInfo.chapters[startChapterIndex];
+        const chapter = chapters[startChapterIndex];
         if (chapter) {
           const content = getChapterContent(text, chapter);
           setChapterContent(content);
@@ -183,7 +193,7 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
   // 点击目录项
   const handleTocClick = useCallback((href) => {
     if (isTxt) {
-      const index = chapters.findIndex(ch => ch.id === href);
+      const index = flatChapters.findIndex(ch => ch.id === href);
       if (index >= 0) {
         loadTxtChapter(index);
       }
@@ -191,7 +201,48 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
     } else {
       goTo(href);
     }
-  }, [isTxt, chapters, loadTxtChapter, goTo]);
+  }, [isTxt, flatChapters, loadTxtChapter, goTo]);
+
+  // 渲染层级目录
+  const renderTocList = () => {
+    if (isTxt && volumes.length > 0) {
+      return (
+        <nav className="toc-list">
+          {volumes.map((vol) => (
+            <div key={vol.id} className="toc-volume">
+              <div className="toc-volume-title">{vol.title}</div>
+              <div className="toc-chapters">
+                {vol.children.map((ch) => (
+                  <a
+                    key={ch.id}
+                    className={`toc-item toc-chapter ${flatChapters[currentChapterIndex]?.id === ch.id ? 'active' : ''}`}
+                    onClick={() => handleTocClick(ch.id)}
+                  >
+                    {ch.title}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      );
+    }
+
+    // EPUB 目录
+    return (
+      <nav className="toc-list">
+        {toc.map((item, index) => (
+          <a
+            key={item.href || index}
+            className="toc-item"
+            onClick={() => handleTocClick(item.href)}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+    );
+  };
 
   return (
     <div className={`reader-container ${isTxt ? 'txt-reader' : settings.theme}`}>
@@ -211,7 +262,7 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
         </button>
         <div className="progress-info">
           {isTxt
-            ? chapters[currentChapterIndex]?.title
+            ? flatChapters[currentChapterIndex]?.title
             : (currentLocation && `${currentLocation.index + 1} / ${toc.length}`)}
         </div>
         {isTxt ? (
@@ -219,7 +270,7 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
             <button className="footer-btn" onClick={prevChapter} disabled={currentChapterIndex === 0}>
               上一章
             </button>
-            <button className="footer-btn" onClick={nextChapter} disabled={currentChapterIndex >= chapters.length - 1}>
+            <button className="footer-btn" onClick={nextChapter} disabled={currentChapterIndex >= flatChapters.length - 1}>
               下一章
             </button>
           </>
@@ -238,17 +289,7 @@ function BookReader({ bookId, settings, onProgressUpdate }) {
               <h3>目录</h3>
               <button onClick={() => setShowToc(false)}>×</button>
             </div>
-            <nav className="toc-list">
-              {toc.map((item, index) => (
-                <a
-                  key={item.href || index}
-                  className={`toc-item ${isTxt && chapters[index]?.id === chapters[currentChapterIndex]?.id ? 'active' : ''}`}
-                  onClick={() => handleTocClick(item.href)}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
+            {renderTocList()}
           </div>
         </div>
       )}

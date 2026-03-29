@@ -21,7 +21,8 @@ function Import() {
         fileName: file.name,
         addedAt: Date.now(),
         cover: result.cover || null,
-        chapters: result.chapters || null,
+        volumes: result.volumes || null,
+        flatChapters: result.flatChapters || null,
       });
 
       // TXT 文件需要保存完整内容用于按需提取章节
