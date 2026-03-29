@@ -1,16 +1,133 @@
-# React + Vite
+# 电子书阅读器 (Reader Web)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个纯浏览器端的电子书阅读器，支持 TXT 和 EPUB 格式，提供舒适的阅读体验。
 
-Currently, two official plugins are available:
+## 功能特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 书籍管理
+- 书架页面展示已导入的书籍和阅读进度
+- 支持拖拽或选择文件导入书籍
+- 删除书籍功能
 
-## React Compiler
+### 格式支持
+| 格式 | 支持情况 |
+|------|----------|
+| TXT | 完整支持（含分章） |
+| EPUB | 完整支持 |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 阅读功能
+- **目录导航**：层级显示卷和章节
+- **章节切换**：上一章/下一章按钮
+- **键盘快捷键**：左箭头上一章，右箭头下一章
+- **阅读进度**：自动保存到本地，刷新后可继续阅读
 
-## Expanding the ESLint configuration
+### 界面定制
+- **主题模式**：白天/夜间/护眼三种主题
+- **字体设置**：字体、字号、字重、行高
+- **内容宽度**：60%~100% 多档调节
+- **禅模式**：隐藏所有界面元素，专注阅读
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 目录功能
+- 卷可折叠/展开
+- 全部展开/全部折叠快捷操作
+- 当前章节高亮显示
+
+## 技术栈
+
+- **前端框架**：React 18 + Vite
+- **路由**：react-router-dom
+- **状态管理**：React Hooks (useState, useCallback, useRef)
+- **本地存储**：IndexedDB (via localforage)
+- **EPUB 解析**：epubjs
+
+## 项目结构
+
+```
+src/
+├── components/
+│   ├── BookReader.jsx     # 阅读器核心组件
+│   └── StylePanel.jsx     # 阅读设置面板
+├── hooks/
+│   ├── useBookParser.js       # 书籍解析
+│   ├── useReadingProgress.js  # 阅读进度
+│   └── useSettings.js         # 用户设置
+├── pages/
+│   ├── BookShelf.jsx     # 书架页面
+│   ├── Import.jsx        # 导入页面
+│   └── Reader.jsx       # 阅读器页面
+├── styles/
+│   └── variables.css     # CSS 变量
+├── utils/
+│   └── storage.js       # IndexedDB 存储
+├── App.jsx
+├── main.jsx
+└── index.css
+```
+
+## 快速开始
+
+### 安装依赖
+
+```bash
+npm install
+```
+
+### 启动开发服务器
+
+```bash
+npm run dev
+```
+
+访问 http://localhost:5173/
+
+### 构建生产版本
+
+```bash
+npm run build
+```
+
+构建产物在 `dist/` 目录。
+
+## 使用说明
+
+### 导入书籍
+1. 进入"导入书籍"页面
+2. 拖拽文件或点击"选择文件"按钮
+3. 支持 .txt、.epub 格式
+
+### 阅读 TXT 书籍
+1. TXT 文件会自动解析章节（支持"第X章"格式）
+2. 点击底部"目录"查看章节列表
+3. 点击"上一章"/"下一章"或使用左右箭头键切换
+
+### 禅模式
+1. 点击顶部栏的"禅"按钮
+2. 界面全部隐藏，只显示内容
+3. 点击右下角的半透明按钮或按 Esc 退出
+
+### 设置
+- 点击顶部"设置"按钮打开设置面板
+- **字体**：选择字体、调整字号和字重
+- **主题**：白天/夜间/护眼模式
+- **布局**：调节内容宽度
+
+## 数据存储
+
+所有数据存储在浏览器的 IndexedDB 中：
+- 书籍元数据和章节结构
+- TXT 文件完整内容
+- 用户设置（字体、主题、宽度等）
+- 阅读进度
+
+数据完全保存在本地，不会上传到任何服务器。
+
+## 浏览器兼容
+
+- Chrome 80+
+- Firefox 75+
+- Safari 13+
+- Edge 80+
+
+## License
+
+MIT
