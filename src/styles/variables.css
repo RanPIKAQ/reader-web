@@ -1,0 +1,87 @@
+:root {
+  /* 字体族 */
+  --font-family-base: 'Georgia', 'Noto Serif SC', serif;
+  --font-family-sans: 'Helvetica Neue', 'Arial', sans-serif;
+
+  /* 字号 */
+  --font-size-small: 14px;
+  --font-size-base: 16px;
+  --font-size-large: 18px;
+  --font-size-xlarge: 20px;
+  --font-size-xxlarge: 24px;
+
+  /* 字重 */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  /* 行高 */
+  --line-height-tight: 1.4;
+  --line-height-normal: 1.6;
+  --line-height-relaxed: 1.8;
+
+  /* 颜色 - 白天模式 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --accent-color: #4a90d9;
+  --border-color: #e0e0e0;
+
+  /* 颜色 - 夜间模式 */
+  --bg-primary-dark: #1a1a1a;
+  --bg-secondary-dark: #2d2d2d;
+  --text-primary-dark: #e0e0e0;
+  --text-secondary-dark: #a0a0a0;
+  --border-color-dark: #404040;
+
+  /* 颜色 - 护眼模式 */
+  --bg-primary-sepia: #f4ecd8;
+  --text-primary-sepia: #5b4636;
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* 圆角 */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+
+  /* 阴影 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* 过渡 */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+}
+
+/* 主题类 */
+.theme-day {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-color: #e0e0e0;
+}
+
+.theme-night {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --border-color: #404040;
+}
+
+.theme-sepia {
+  --bg-primary: #f4ecd8;
+  --bg-secondary: #e8dcc8;
+  --text-primary: #5b4636;
+  --text-secondary: #7a6555;
+  --border-color: #d4c4a8;
+}
