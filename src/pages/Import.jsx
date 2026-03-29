@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { saveBookData } from '../utils/storage';
+import { saveBookData, saveTxtContent } from '../utils/storage';
 import { useBookParser } from '../hooks/useBookParser';
 
 function Import() {
@@ -11,16 +11,24 @@ function Import() {
   const handleFile = useCallback(async (file) => {
     const result = await parseFile(file);
     if (result) {
+      const fileType = file.name.split('.').pop().toLowerCase();
+
       await saveBookData(result.id, {
         id: result.id,
         title: result.title || file.name,
         author: result.author || '未知作者',
-        type: file.name.split('.').pop().toLowerCase(),
+        type: fileType,
         fileName: file.name,
         addedAt: Date.now(),
         cover: result.cover || null,
-        content: result.content || null,
+        chapters: result.chapters || null,
       });
+
+      // TXT 文件需要保存完整内容用于按需提取章节
+      if (fileType === 'txt' && result.content) {
+        await saveTxtContent(result.id, result.content);
+      }
+
       navigate(`/read/${result.id}`);
     }
   }, [parseFile, navigate]);
