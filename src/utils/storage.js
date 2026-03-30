@@ -80,4 +80,11 @@ export const DEFAULT_SETTINGS = {
   contentWidth: 100, // 内容宽度百分比
 };
 
+// 清除所有数据
+export const clearAllData = async () => {
+  await storage.clear();
+  await chapterStorage.clear();
+  await settingsStorage.clear();
+};
+
 export default storage;

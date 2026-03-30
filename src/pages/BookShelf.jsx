@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllBooks, getReadingProgress, removeBook } from '../utils/storage';
+import { getAllBooks, getReadingProgress, removeBook, clearAllData } from '../utils/storage';
 
 function BookShelf() {
   const [books, setBooks] = useState([]);
@@ -26,6 +26,13 @@ function BookShelf() {
     if (window.confirm('确定要删除这本书吗？')) {
       await removeBook(bookId);
       loadBooks();
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (window.confirm('确定要清除所有数据吗？此操作不可恢复。')) {
+      await clearAllData();
+      window.location.reload();
     }
   };
 
@@ -84,6 +91,14 @@ function BookShelf() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {books.length > 0 && (
+        <div className="shelf-footer">
+          <button className="btn-clear-all" onClick={handleClearAll}>
+            清除所有数据
+          </button>
         </div>
       )}
     </div>
