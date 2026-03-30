@@ -23,6 +23,20 @@ const CONTENT_WIDTHS = [
   { label: '60%', value: 60 },
 ];
 
+const TEXT_COLORS = [
+  { label: '深灰', value: '#333333' },
+  { label: '黑色', value: '#000000' },
+  { label: '白色', value: '#ffffff' },
+  { label: '浅灰', value: '#666666' },
+];
+
+const BG_COLORS = [
+  { label: '白色', value: '#ffffff' },
+  { label: '米黄', value: '#f4ecd8' },
+  { label: '深灰', value: '#2d2d2d' },
+  { label: '黑色', value: '#1a1a1a' },
+];
+
 function StylePanel({ settings, onUpdate, onClose }) {
   const [activeTab, setActiveTab] = useState('font');
 
@@ -46,6 +60,12 @@ function StylePanel({ settings, onUpdate, onClose }) {
             onClick={() => setActiveTab('theme')}
           >
             主题
+          </button>
+          <button
+            className={activeTab === 'color' ? 'active' : ''}
+            onClick={() => setActiveTab('color')}
+          >
+            颜色
           </button>
           <button
             className={activeTab === 'layout' ? 'active' : ''}
@@ -144,6 +164,67 @@ function StylePanel({ settings, onUpdate, onClose }) {
                 >
                   <span className="theme-preview sepia-preview" />
                   <span>护眼</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'color' && (
+            <div className="settings-group">
+              <div className="setting-item">
+                <label>文字颜色</label>
+                <div className="color-options">
+                  <input
+                    type="color"
+                    className="color-picker"
+                    value={settings.customTextColor || '#333333'}
+                    onChange={(e) => onUpdate({ customTextColor: e.target.value })}
+                  />
+                  <div className="color-presets">
+                    {TEXT_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        className={`color-preset ${settings.customTextColor === c.value ? 'active' : ''}`}
+                        style={{ backgroundColor: c.value }}
+                        onClick={() => onUpdate({ customTextColor: c.value })}
+                        title={c.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <label>背景颜色</label>
+                <div className="color-options">
+                  <input
+                    type="color"
+                    className="color-picker"
+                    value={settings.customBgColor || '#ffffff'}
+                    onChange={(e) => onUpdate({ customBgColor: e.target.value })}
+                  />
+                  <div className="color-presets">
+                    {BG_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        className={`color-preset ${settings.customBgColor === c.value ? 'active' : ''}`}
+                        style={{ backgroundColor: c.value }}
+                        onClick={() => onUpdate({ customBgColor: c.value })}
+                        title={c.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <button
+                  className="btn-reset-color"
+                  onClick={() => {
+                    onUpdate({ customTextColor: null, customBgColor: null });
+                  }}
+                >
+                  重置为默认
                 </button>
               </div>
             </div>

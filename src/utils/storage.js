@@ -76,8 +76,10 @@ export const DEFAULT_SETTINGS = {
   fontWeight: 400,
   lineHeight: 1.6,
   theme: 'day',
+  customTextColor: null,
+  customBgColor: null,
   pageMode: 'scroll',
-  contentWidth: 100, // 内容宽度百分比
+  contentWidth: 100,
 };
 
 // 清除所有数据

@@ -302,6 +302,8 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     lineHeight: settings.lineHeight,
     width: `${settings.contentWidth || 100}%`,
     maxWidth: '100%',
+    color: settings.customTextColor || 'inherit',
+    backgroundColor: 'transparent',
   };
 
   const isTxt = bookMeta?.type === 'txt';
@@ -376,7 +378,10 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   };
 
   return (
-    <div className={`reader-container ${isTxt ? 'txt-reader' : settings.theme} ${zenMode ? 'zen-mode' : ''}`}>
+    <div
+      className={`reader-container ${isTxt ? 'txt-reader' : settings.theme} ${zenMode ? 'zen-mode' : ''}`}
+      style={{ backgroundColor: settings.customBgColor || undefined }}
+    >
       {loading ? (
         <div className="reader-loading">加载中...</div>
       ) : isTxt ? (

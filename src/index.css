@@ -760,3 +760,55 @@ button {
   background: var(--accent-color);
   color: white;
 }
+
+/* 颜色设置 */
+.color-options {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.color-picker {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-presets {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.color-preset {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.color-preset:hover {
+  transform: scale(1.1);
+}
+
+.color-preset.active {
+  border-color: var(--accent-color);
+}
+
+.btn-reset-color {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: 14px;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn-reset-color:hover {
+  background: var(--border-color);
+}
