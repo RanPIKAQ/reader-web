@@ -49,6 +49,38 @@ button {
   font-weight: 700;
 }
 
+.header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-import-book {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--accent-color);
+  color: white;
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  transition: opacity var(--transition-fast);
+}
+
+.btn-import-book:hover {
+  opacity: 0.9;
+}
+
+.btn-export {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  transition: opacity var(--transition-fast);
+  border: 1px solid var(--border-color);
+}
+
+.btn-export:hover {
+  opacity: 0.9;
+}
+
 .btn-import {
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--accent-color);

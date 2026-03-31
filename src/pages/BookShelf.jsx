@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllBooks, getReadingProgress, removeBook, clearAllData } from '../utils/storage';
+import { getAllBooks, getReadingProgress, removeBook, clearAllData, exportAllData, importAllData } from '../utils/storage';
 
 function BookShelf() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadBooks();
@@ -36,12 +37,67 @@ function BookShelf() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const data = await exportAllData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reader-backup-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('导出失败: ' + err.message);
+    }
+  };
+
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.version || !data.books) {
+        alert('无效的备份文件');
+        return;
+      }
+
+      if (window.confirm(`将导入 ${data.books.length} 本书籍和设置，是否继续？`)) {
+        await importAllData(data);
+        window.location.reload();
+      }
+    } catch (err) {
+      alert('导入失败: ' + err.message);
+    }
+
+    e.target.value = '';
+  };
+
   return (
     <div className="bookshelf">
       <header className="shelf-header">
         <h1>我的书架</h1>
-        <Link to="/import" className="btn-import">导入书籍</Link>
+        <div className="header-actions">
+          <Link to="/import" className="btn-import-book">导入书籍</Link>
+          <button className="btn-export" onClick={handleExport}>导出配置</button>
+          <button className="btn-import" onClick={handleImport}>导入配置</button>
+        </div>
       </header>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleFileImport}
+        hidden
+      />
 
       {loading ? (
         <div className="loading">加载中...</div>

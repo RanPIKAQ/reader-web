@@ -89,4 +89,44 @@ export const clearAllData = async () => {
   await settingsStorage.clear();
 };
 
+// 导出所有数据为 JSON
+export const exportAllData = async () => {
+  const books = await getAllBooks();
+  const settings = await getSettings();
+  const booksWithProgress = await Promise.all(
+    books.map(async (book) => ({
+      ...book,
+      progress: await getReadingProgress(book.id),
+      txtContent: book.type === 'txt' ? await getTxtContent(book.id) : null
+    }))
+  );
+  return {
+    version: 1,
+    exportedAt: Date.now(),
+    books: booksWithProgress,
+    settings
+  };
+};
+
+// 导入数据
+export const importAllData = async (data) => {
+  // 恢复设置
+  if (data.settings) {
+    await settingsStorage.setItem('userSettings', data.settings);
+  }
+  // 恢复书籍
+  if (data.books) {
+    for (const book of data.books) {
+      const { progress, txtContent, ...bookData } = book;
+      await storage.setItem(`book_${book.id}`, bookData);
+      if (progress) {
+        await storage.setItem(`progress_${book.id}`, progress);
+      }
+      if (txtContent) {
+        await chapterStorage.setItem(`txt_content_${book.id}`, txtContent);
+      }
+    }
+  }
+};
+
 export default storage;
