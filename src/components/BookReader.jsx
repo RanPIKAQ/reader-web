@@ -4,6 +4,7 @@ import { getBookData, getReadingProgress, getTxtContent } from '../utils/storage
 import { getChapterContent } from '../hooks/useBookParser';
 
 function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMode }) {
+  const readerContainerRef = useRef(null);
   const containerRef = useRef(null);
   const txtContentRef = useRef(null);
   const renditionRef = useRef(null);
@@ -28,6 +29,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   const fullTextRef = useRef('');
   const flatChaptersRef = useRef([]);
   const onProgressUpdateRef = useRef(onProgressUpdate);
+  const isTxt = bookMeta?.type === 'txt';
 
   // 保持 ref 更新
   useEffect(() => {
@@ -240,6 +242,22 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     };
   }, [loadBook]);
 
+  useEffect(() => {
+    const container = readerContainerRef.current;
+    if (!container || !zenMode || !isTxt) return undefined;
+
+    const handleWheel = (e) => {
+      if (!txtContentRef.current) return;
+      e.preventDefault();
+      txtContentRef.current.scrollBy({
+        top: e.deltaY,
+      });
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [zenMode, isTxt]);
+
   // 键盘左右键监听
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -304,8 +322,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     color: settings.customTextColor || 'inherit',
     backgroundColor: 'transparent',
   };
-
-  const isTxt = bookMeta?.type === 'txt';
 
   // 点击目录项
   const handleTocClick = useCallback((href) => {
@@ -378,6 +394,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
 
   return (
     <div
+      ref={readerContainerRef}
       className={`reader-container ${isTxt ? 'txt-reader' : settings.theme} ${zenMode ? 'zen-mode' : ''}`}
       style={{ backgroundColor: settings.customBgColor || undefined }}
     >
