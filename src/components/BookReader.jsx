@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import epubjs from 'epubjs';
 import { getBookData, getReadingProgress, getTxtContent } from '../utils/storage';
 import { getChapterContent } from '../hooks/useBookParser';
@@ -17,6 +17,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   const boundaryResetTimerRef = useRef(null);
   const chapterTransitionTimerRef = useRef(null);
   const isChapterTransitioningRef = useRef(false);
+  const pendingTxtScrollTargetRef = useRef(null);
 
   const [toc, setToc] = useState([]);
   const [volumes, setVolumes] = useState([]);
@@ -121,7 +122,8 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   }, [volumes]);
 
   // TXT 模式下加载章节内容
-  const loadTxtChapter = useCallback(async (chapterIndex) => {
+  const loadTxtChapter = useCallback(async (chapterIndex, options = {}) => {
+    const { scrollTarget = 'start' } = options;
     const text = fullTextRef.current;
     const chapters = flatChaptersRef.current;
     const progressCb = onProgressUpdateRef.current;
@@ -132,15 +134,11 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     const chapter = chapters[chapterIndex];
     if (chapter) {
       resetBoundaryScroll();
+      pendingTxtScrollTargetRef.current = scrollTarget;
       const content = getChapterContent(text, chapter);
       setChapterContent(content);
       currentChapterIndexRef.current = chapterIndex;
       setCurrentChapterIndex(chapterIndex);
-
-      // 滚动到章开头
-      if (txtContentRef.current) {
-        txtContentRef.current.scrollTop = 0;
-      }
 
       // 保存阅读进度
       const progress = {
@@ -151,6 +149,19 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     }
     return chapterIndex;
   }, [resetBoundaryScroll]);
+
+  useLayoutEffect(() => {
+    if (!isTxt || !txtContentRef.current || !pendingTxtScrollTargetRef.current) return;
+
+    const content = txtContentRef.current;
+    if (pendingTxtScrollTargetRef.current === 'end') {
+      content.scrollTop = Math.max(content.scrollHeight - content.clientHeight, 0);
+    } else {
+      content.scrollTop = 0;
+    }
+
+    pendingTxtScrollTargetRef.current = null;
+  }, [chapterContent, currentChapterIndex, isTxt]);
 
   // 上一页（章节模式）
   const prevChapter = useCallback(() => {
@@ -240,6 +251,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
       // 加载第一章或上次阅读的章节
       const chapter = chapters[startChapterIndex];
       if (chapter) {
+        pendingTxtScrollTargetRef.current = 'start';
         const content = getChapterContent(text, chapter);
         setChapterContent(content);
         currentChapterIndexRef.current = startChapterIndex;
@@ -356,7 +368,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
         if (nextValue >= CHAPTER_BOUNDARY_THRESHOLD) {
           startChapterTransitionGuard();
           resetBoundaryScroll();
-          loadTxtChapter(targetIndex);
+          loadTxtChapter(targetIndex, { scrollTarget: 'end' });
         }
         return;
       }
