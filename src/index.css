@@ -394,6 +394,13 @@ button {
 
 .reader-container.zen-mode .txt-content {
   margin: 0 auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.reader-container.zen-mode .txt-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .zen-mode-btn {
@@ -439,7 +446,7 @@ button {
 .txt-reader {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   height: 100%;
