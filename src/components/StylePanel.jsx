@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 const FONTS = [
   { label: '宋体', value: 'Georgia, serif' },
@@ -190,6 +190,40 @@ function StylePanel({ settings, onUpdate, onClose }) {
                         title={c.label}
                       />
                     ))}
+                    {settings.customTextColors?.map((c) => (
+                      <button
+                        key={c}
+                        className={`color-preset custom ${settings.customTextColor === c ? 'active' : ''}`}
+                        style={{ backgroundColor: c }}
+                        onClick={() => onUpdate({ customTextColor: c })}
+                        title={`删除: ${c}`}
+                      >
+                        <span
+                          className="delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onUpdate({
+                              customTextColors: settings.customTextColors.filter(color => color !== c),
+                              customTextColor: settings.customTextColor === c ? null : settings.customTextColor
+                            });
+                          }}
+                        >
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                    <button
+                      className="color-add-btn"
+                      onClick={() => {
+                        if (settings.customTextColor && !settings.customTextColors?.includes(settings.customTextColor)) {
+                          const newColors = [...(settings.customTextColors || []), settings.customTextColor];
+                          onUpdate({ customTextColors: newColors });
+                        }
+                      }}
+                      title="添加当前颜色到自定义"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               </div>
@@ -213,6 +247,40 @@ function StylePanel({ settings, onUpdate, onClose }) {
                         title={c.label}
                       />
                     ))}
+                    {settings.customBgColors?.map((c) => (
+                      <button
+                        key={c}
+                        className={`color-preset custom ${settings.customBgColor === c ? 'active' : ''}`}
+                        style={{ backgroundColor: c }}
+                        onClick={() => onUpdate({ customBgColor: c })}
+                        title={`删除: ${c}`}
+                      >
+                        <span
+                          className="delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onUpdate({
+                              customBgColors: settings.customBgColors.filter(color => color !== c),
+                              customBgColor: settings.customBgColor === c ? null : settings.customBgColor
+                            });
+                          }}
+                        >
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                    <button
+                      className="color-add-btn"
+                      onClick={() => {
+                        if (settings.customBgColor && !settings.customBgColors?.includes(settings.customBgColor)) {
+                          const newColors = [...(settings.customBgColors || []), settings.customBgColor];
+                          onUpdate({ customBgColors: newColors });
+                        }
+                      }}
+                      title="添加当前颜色到自定义"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               </div>

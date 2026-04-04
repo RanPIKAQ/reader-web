@@ -244,7 +244,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (showToc) return;
-      if (zenMode) return;
       if (bookMeta?.type !== 'txt') return;
 
       if (e.key === 'ArrowLeft') {

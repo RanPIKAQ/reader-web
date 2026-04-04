@@ -78,6 +78,8 @@ export const DEFAULT_SETTINGS = {
   theme: 'day',
   customTextColor: null,
   customBgColor: null,
+  customTextColors: [],
+  customBgColors: [],
   pageMode: 'scroll',
   contentWidth: 100,
 };
