@@ -431,6 +431,63 @@ button {
   opacity: 0.8;
 }
 
+.zen-boundary-indicator {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 96px));
+  pointer-events: none;
+  z-index: 950;
+}
+
+.zen-boundary-indicator-prev {
+  top: 24px;
+}
+
+.zen-boundary-indicator-next {
+  bottom: 84px;
+}
+
+.zen-boundary-card {
+  padding: 12px 14px;
+  border-radius: var(--border-radius-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  opacity: 0.96;
+}
+
+.zen-boundary-label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.zen-boundary-title {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zen-boundary-progress {
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.zen-boundary-progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: inherit;
+  transition: width var(--transition-fast);
+}
+
 /* 内容宽度 */
 .txt-content {
   transition: width 0.3s ease;

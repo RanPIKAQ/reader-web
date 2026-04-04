@@ -3,11 +3,20 @@ import epubjs from 'epubjs';
 import { getBookData, getReadingProgress, getTxtContent } from '../utils/storage';
 import { getChapterContent } from '../hooks/useBookParser';
 
+const CHAPTER_BOUNDARY_THRESHOLD = 580;
+const BOUNDARY_RESET_DELAY = 700;
+const CHAPTER_TRANSITION_GUARD_DELAY = 250;
+
 function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMode }) {
   const readerContainerRef = useRef(null);
   const containerRef = useRef(null);
   const txtContentRef = useRef(null);
   const renditionRef = useRef(null);
+  const currentChapterIndexRef = useRef(0);
+  const boundaryScrollStateRef = useRef(null);
+  const boundaryResetTimerRef = useRef(null);
+  const chapterTransitionTimerRef = useRef(null);
+  const isChapterTransitioningRef = useRef(false);
 
   const [toc, setToc] = useState([]);
   const [volumes, setVolumes] = useState([]);
@@ -21,6 +30,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [chapterContent, setChapterContent] = useState('');
   const [fullText, setFullText] = useState('');
+  const [boundaryScrollState, setBoundaryScrollState] = useState(null);
 
   // 卷折叠状态
   const [collapsedVolumes, setCollapsedVolumes] = useState({});
@@ -36,7 +46,49 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     fullTextRef.current = fullText;
     flatChaptersRef.current = flatChapters;
     onProgressUpdateRef.current = onProgressUpdate;
-  }, [fullText, flatChapters, onProgressUpdate]);
+    currentChapterIndexRef.current = currentChapterIndex;
+  }, [fullText, flatChapters, onProgressUpdate, currentChapterIndex]);
+
+  const setBoundaryState = useCallback((nextState) => {
+    boundaryScrollStateRef.current = nextState;
+    setBoundaryScrollState(nextState);
+  }, []);
+
+  const clearBoundaryResetTimer = useCallback(() => {
+    if (boundaryResetTimerRef.current) {
+      clearTimeout(boundaryResetTimerRef.current);
+      boundaryResetTimerRef.current = null;
+    }
+  }, []);
+
+  const clearChapterTransitionTimer = useCallback(() => {
+    if (chapterTransitionTimerRef.current) {
+      clearTimeout(chapterTransitionTimerRef.current);
+      chapterTransitionTimerRef.current = null;
+    }
+  }, []);
+
+  const resetBoundaryScroll = useCallback(() => {
+    clearBoundaryResetTimer();
+    setBoundaryState(null);
+  }, [clearBoundaryResetTimer, setBoundaryState]);
+
+  const scheduleBoundaryReset = useCallback(() => {
+    clearBoundaryResetTimer();
+    boundaryResetTimerRef.current = window.setTimeout(() => {
+      setBoundaryState(null);
+      boundaryResetTimerRef.current = null;
+    }, BOUNDARY_RESET_DELAY);
+  }, [clearBoundaryResetTimer, setBoundaryState]);
+
+  const startChapterTransitionGuard = useCallback(() => {
+    isChapterTransitioningRef.current = true;
+    clearChapterTransitionTimer();
+    chapterTransitionTimerRef.current = window.setTimeout(() => {
+      isChapterTransitioningRef.current = false;
+      chapterTransitionTimerRef.current = null;
+    }, CHAPTER_TRANSITION_GUARD_DELAY);
+  }, [clearChapterTransitionTimer]);
 
   // 切换单个卷的折叠状态
   const toggleVolume = useCallback((volId) => {
@@ -79,8 +131,11 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
 
     const chapter = chapters[chapterIndex];
     if (chapter) {
+      resetBoundaryScroll();
       const content = getChapterContent(text, chapter);
       setChapterContent(content);
+      currentChapterIndexRef.current = chapterIndex;
+      setCurrentChapterIndex(chapterIndex);
 
       // 滚动到章开头
       if (txtContentRef.current) {
@@ -95,14 +150,13 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
       progressCb(progress);
     }
     return chapterIndex;
-  }, []);
+  }, [resetBoundaryScroll]);
 
   // 上一页（章节模式）
   const prevChapter = useCallback(() => {
     const newIndex = currentChapterIndex - 1;
     if (newIndex >= 0) {
       loadTxtChapter(newIndex);
-      setCurrentChapterIndex(newIndex);
     }
   }, [currentChapterIndex, loadTxtChapter]);
 
@@ -111,7 +165,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     const newIndex = currentChapterIndex + 1;
     if (newIndex < flatChaptersRef.current.length) {
       loadTxtChapter(newIndex);
-      setCurrentChapterIndex(newIndex);
     }
   }, [currentChapterIndex, loadTxtChapter]);
 
@@ -189,6 +242,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
       if (chapter) {
         const content = getChapterContent(text, chapter);
         setChapterContent(content);
+        currentChapterIndexRef.current = startChapterIndex;
         setCurrentChapterIndex(startChapterIndex);
       }
 
@@ -243,20 +297,119 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   }, [loadBook]);
 
   useEffect(() => {
+    return () => {
+      clearBoundaryResetTimer();
+      clearChapterTransitionTimer();
+    };
+  }, [clearBoundaryResetTimer, clearChapterTransitionTimer]);
+
+  useEffect(() => {
+    if (zenMode && isTxt) return;
+    resetBoundaryScroll();
+    clearChapterTransitionTimer();
+    isChapterTransitioningRef.current = false;
+  }, [zenMode, isTxt, resetBoundaryScroll, clearChapterTransitionTimer]);
+
+  useEffect(() => {
     const container = readerContainerRef.current;
     if (!container || !zenMode || !isTxt) return undefined;
 
     const handleWheel = (e) => {
-      if (!txtContentRef.current) return;
+      const content = txtContentRef.current;
+      if (!content) return;
       e.preventDefault();
-      txtContentRef.current.scrollBy({
-        top: e.deltaY,
+
+      if (isChapterTransitioningRef.current) return;
+
+      const deltaY = e.deltaY;
+      if (deltaY === 0) return;
+
+      const maxScrollTop = Math.max(content.scrollHeight - content.clientHeight, 0);
+      const atTop = content.scrollTop <= 0;
+      const atBottom = content.scrollTop >= maxScrollTop - 1;
+      const currentIndex = currentChapterIndexRef.current;
+
+      if (deltaY < 0 && atTop) {
+        const targetIndex = currentIndex - 1;
+        const targetChapter = flatChaptersRef.current[targetIndex];
+        if (!targetChapter) {
+          resetBoundaryScroll();
+          return;
+        }
+
+        const previousState = boundaryScrollStateRef.current;
+        const nextValue = Math.min(
+          (previousState?.direction === 'prev' && previousState.targetIndex === targetIndex
+            ? previousState.value
+            : 0) + Math.abs(deltaY),
+          CHAPTER_BOUNDARY_THRESHOLD
+        );
+
+        setBoundaryState({
+          direction: 'prev',
+          value: nextValue,
+          targetIndex,
+          targetTitle: targetChapter.title,
+        });
+        scheduleBoundaryReset();
+
+        if (nextValue >= CHAPTER_BOUNDARY_THRESHOLD) {
+          startChapterTransitionGuard();
+          resetBoundaryScroll();
+          loadTxtChapter(targetIndex);
+        }
+        return;
+      }
+
+      if (deltaY > 0 && atBottom) {
+        const targetIndex = currentIndex + 1;
+        const targetChapter = flatChaptersRef.current[targetIndex];
+        if (!targetChapter) {
+          resetBoundaryScroll();
+          return;
+        }
+
+        const previousState = boundaryScrollStateRef.current;
+        const nextValue = Math.min(
+          (previousState?.direction === 'next' && previousState.targetIndex === targetIndex
+            ? previousState.value
+            : 0) + deltaY,
+          CHAPTER_BOUNDARY_THRESHOLD
+        );
+
+        setBoundaryState({
+          direction: 'next',
+          value: nextValue,
+          targetIndex,
+          targetTitle: targetChapter.title,
+        });
+        scheduleBoundaryReset();
+
+        if (nextValue >= CHAPTER_BOUNDARY_THRESHOLD) {
+          startChapterTransitionGuard();
+          resetBoundaryScroll();
+          loadTxtChapter(targetIndex);
+        }
+        return;
+      }
+
+      resetBoundaryScroll();
+      content.scrollBy({
+        top: deltaY,
       });
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
-  }, [zenMode, isTxt]);
+  }, [
+    zenMode,
+    isTxt,
+    loadTxtChapter,
+    resetBoundaryScroll,
+    scheduleBoundaryReset,
+    setBoundaryState,
+    startChapterTransitionGuard,
+  ]);
 
   // 键盘左右键监听
   useEffect(() => {
@@ -322,6 +475,10 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     color: settings.customTextColor || 'inherit',
     backgroundColor: 'transparent',
   };
+
+  const boundaryScrollPercent = boundaryScrollState
+    ? Math.min((boundaryScrollState.value / CHAPTER_BOUNDARY_THRESHOLD) * 100, 100)
+    : 0;
 
   // 点击目录项
   const handleTocClick = useCallback((href) => {
@@ -410,6 +567,28 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
         </div>
       ) : (
         <div ref={containerRef} className="epub-container" />
+      )}
+
+      {zenMode && isTxt && boundaryScrollState && (
+        <div
+          className={`zen-boundary-indicator zen-boundary-indicator-${boundaryScrollState.direction}`}
+          aria-hidden="true"
+        >
+          <div className="zen-boundary-card">
+            <span className="zen-boundary-label">
+              {boundaryScrollState.direction === 'next'
+                ? '继续下滚进入下一章'
+                : '继续上滚进入上一章'}
+            </span>
+            <span className="zen-boundary-title">{boundaryScrollState.targetTitle}</span>
+            <div className="zen-boundary-progress">
+              <div
+                className="zen-boundary-progress-fill"
+                style={{ width: `${boundaryScrollPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 禅模式退出按钮 - 右下角 */}
