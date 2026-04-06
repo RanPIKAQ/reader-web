@@ -23,22 +23,91 @@ const CONTENT_WIDTHS = [
   { label: '60%', value: 60 },
 ];
 
-const TEXT_COLORS = [
-  { label: '深灰', value: '#333333' },
-  { label: '黑色', value: '#000000' },
-  { label: '白色', value: '#ffffff' },
-  { label: '浅灰', value: '#666666' },
-];
+const THEME_COLOR_MAP = {
+  day: {
+    text: '#333333',
+    bg: '#ffffff',
+  },
+  night: {
+    text: '#e0e0e0',
+    bg: '#1a1a1a',
+  },
+  sepia: {
+    text: '#5b4636',
+    bg: '#f4ecd8',
+  },
+};
 
-const BG_COLORS = [
-  { label: '白色', value: '#ffffff' },
-  { label: '米黄', value: '#f4ecd8' },
-  { label: '深灰', value: '#2d2d2d' },
-  { label: '黑色', value: '#1a1a1a' },
-];
+function normalizeColor(color) {
+  return (color || '').trim().toLowerCase();
+}
+
+function isDefaultThemeColor(selectedColor, defaultColor) {
+  return !selectedColor || normalizeColor(selectedColor) === normalizeColor(defaultColor);
+}
+
+function getVisibleCustomColors(colors, defaultColor) {
+  const seen = new Set();
+  const normalizedDefault = normalizeColor(defaultColor);
+
+  return (colors || []).filter((color) => {
+    const normalized = normalizeColor(color);
+    if (!normalized || normalized === normalizedDefault || seen.has(normalized)) {
+      return false;
+    }
+    seen.add(normalized);
+    return true;
+  });
+}
 
 function StylePanel({ settings, onUpdate, onClose }) {
   const [activeTab, setActiveTab] = useState('font');
+  const themeColors = THEME_COLOR_MAP[settings.theme] || THEME_COLOR_MAP.day;
+  const defaultTextColor = themeColors.text;
+  const defaultBgColor = themeColors.bg;
+  const effectiveTextColor = settings.customTextColor || defaultTextColor;
+  const effectiveBgColor = settings.customBgColor || defaultBgColor;
+  const visibleTextColors = getVisibleCustomColors(settings.customTextColors, defaultTextColor);
+  const visibleBgColors = getVisibleCustomColors(settings.customBgColors, defaultBgColor);
+
+  const handleAddCustomColor = (colorType) => {
+    const isText = colorType === 'text';
+    const defaultColor = isText ? defaultTextColor : defaultBgColor;
+    const selectedColor = isText ? effectiveTextColor : effectiveBgColor;
+    const currentColors = isText ? settings.customTextColors : settings.customBgColors;
+    const visibleColors = isText ? visibleTextColors : visibleBgColors;
+
+    if (normalizeColor(selectedColor) === normalizeColor(defaultColor)) {
+      return;
+    }
+
+    if (visibleColors.some(color => normalizeColor(color) === normalizeColor(selectedColor))) {
+      return;
+    }
+
+    const nextColors = [...(currentColors || []), selectedColor];
+    onUpdate(isText ? { customTextColors: nextColors } : { customBgColors: nextColors });
+  };
+
+  const handleRemoveCustomColor = (colorType, color) => {
+    const isText = colorType === 'text';
+    const currentColors = isText ? settings.customTextColors : settings.customBgColors;
+    const selectedColor = isText ? settings.customTextColor : settings.customBgColor;
+    const nextColors = (currentColors || []).filter(item => normalizeColor(item) !== normalizeColor(color));
+
+    if (isText) {
+      onUpdate({
+        customTextColors: nextColors,
+        customTextColor: normalizeColor(selectedColor) === normalizeColor(color) ? null : selectedColor,
+      });
+      return;
+    }
+
+    onUpdate({
+      customBgColors: nextColors,
+      customBgColor: normalizeColor(selectedColor) === normalizeColor(color) ? null : selectedColor,
+    });
+  };
 
   return (
     <div className="style-panel-overlay" onClick={onClose}>
@@ -177,50 +246,41 @@ function StylePanel({ settings, onUpdate, onClose }) {
                   <input
                     type="color"
                     className="color-picker"
-                    value={settings.customTextColor || '#333333'}
+                    value={effectiveTextColor}
                     onChange={(e) => onUpdate({ customTextColor: e.target.value })}
                   />
                   <div className="color-presets">
-                    {TEXT_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        className={`color-preset ${settings.customTextColor === c.value ? 'active' : ''}`}
-                        style={{ backgroundColor: c.value }}
-                        onClick={() => onUpdate({ customTextColor: c.value })}
-                        title={c.label}
-                      />
-                    ))}
-                    {settings.customTextColors?.map((c) => (
-                      <button
-                        key={c}
-                        className={`color-preset custom ${settings.customTextColor === c ? 'active' : ''}`}
-                        style={{ backgroundColor: c }}
-                        onClick={() => onUpdate({ customTextColor: c })}
-                        title={`删除: ${c}`}
-                      >
-                        <span
-                          className="delete-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpdate({
-                              customTextColors: settings.customTextColors.filter(color => color !== c),
-                              customTextColor: settings.customTextColor === c ? null : settings.customTextColor
-                            });
-                          }}
+                    <button
+                      className={`color-preset ${isDefaultThemeColor(settings.customTextColor, defaultTextColor) ? 'active' : ''}`}
+                      style={{ backgroundColor: defaultTextColor }}
+                      onClick={() => onUpdate({ customTextColor: null })}
+                      title="当前主题默认文字色"
+                      aria-label="使用当前主题默认文字色"
+                    />
+                    {visibleTextColors.map((color) => (
+                      <div key={color} className="color-preset-item">
+                        <button
+                          className={`color-preset custom ${normalizeColor(settings.customTextColor) === normalizeColor(color) ? 'active' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => onUpdate({ customTextColor: color })}
+                          title={`自定义文字颜色 ${color}`}
+                          aria-label={`选择自定义文字颜色 ${color}`}
+                        />
+                        <button
+                          className="color-preset-delete"
+                          onClick={() => handleRemoveCustomColor('text', color)}
+                          aria-label={`删除自定义文字颜色 ${color}`}
+                          title={`删除 ${color}`}
                         >
                           ×
-                        </span>
-                      </button>
+                        </button>
+                      </div>
                     ))}
                     <button
                       className="color-add-btn"
-                      onClick={() => {
-                        if (settings.customTextColor && !settings.customTextColors?.includes(settings.customTextColor)) {
-                          const newColors = [...(settings.customTextColors || []), settings.customTextColor];
-                          onUpdate({ customTextColors: newColors });
-                        }
-                      }}
+                      onClick={() => handleAddCustomColor('text')}
                       title="添加当前颜色到自定义"
+                      aria-label="添加当前文字颜色到自定义"
                     >
                       +
                     </button>
@@ -234,50 +294,41 @@ function StylePanel({ settings, onUpdate, onClose }) {
                   <input
                     type="color"
                     className="color-picker"
-                    value={settings.customBgColor || '#ffffff'}
+                    value={effectiveBgColor}
                     onChange={(e) => onUpdate({ customBgColor: e.target.value })}
                   />
                   <div className="color-presets">
-                    {BG_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        className={`color-preset ${settings.customBgColor === c.value ? 'active' : ''}`}
-                        style={{ backgroundColor: c.value }}
-                        onClick={() => onUpdate({ customBgColor: c.value })}
-                        title={c.label}
-                      />
-                    ))}
-                    {settings.customBgColors?.map((c) => (
-                      <button
-                        key={c}
-                        className={`color-preset custom ${settings.customBgColor === c ? 'active' : ''}`}
-                        style={{ backgroundColor: c }}
-                        onClick={() => onUpdate({ customBgColor: c })}
-                        title={`删除: ${c}`}
-                      >
-                        <span
-                          className="delete-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpdate({
-                              customBgColors: settings.customBgColors.filter(color => color !== c),
-                              customBgColor: settings.customBgColor === c ? null : settings.customBgColor
-                            });
-                          }}
+                    <button
+                      className={`color-preset ${isDefaultThemeColor(settings.customBgColor, defaultBgColor) ? 'active' : ''}`}
+                      style={{ backgroundColor: defaultBgColor }}
+                      onClick={() => onUpdate({ customBgColor: null })}
+                      title="当前主题默认背景色"
+                      aria-label="使用当前主题默认背景色"
+                    />
+                    {visibleBgColors.map((color) => (
+                      <div key={color} className="color-preset-item">
+                        <button
+                          className={`color-preset custom ${normalizeColor(settings.customBgColor) === normalizeColor(color) ? 'active' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => onUpdate({ customBgColor: color })}
+                          title={`自定义背景颜色 ${color}`}
+                          aria-label={`选择自定义背景颜色 ${color}`}
+                        />
+                        <button
+                          className="color-preset-delete"
+                          onClick={() => handleRemoveCustomColor('bg', color)}
+                          aria-label={`删除自定义背景颜色 ${color}`}
+                          title={`删除 ${color}`}
                         >
                           ×
-                        </span>
-                      </button>
+                        </button>
+                      </div>
                     ))}
                     <button
                       className="color-add-btn"
-                      onClick={() => {
-                        if (settings.customBgColor && !settings.customBgColors?.includes(settings.customBgColor)) {
-                          const newColors = [...(settings.customBgColors || []), settings.customBgColor];
-                          onUpdate({ customBgColors: newColors });
-                        }
-                      }}
+                      onClick={() => handleAddCustomColor('bg')}
                       title="添加当前颜色到自定义"
+                      aria-label="添加当前背景颜色到自定义"
                     >
                       +
                     </button>
