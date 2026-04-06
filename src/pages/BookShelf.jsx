@@ -7,10 +7,6 @@ function BookShelf() {
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    loadBooks();
-  }, []);
-
   const loadBooks = async () => {
     const allBooks = await getAllBooks();
     const booksWithProgress = await Promise.all(
@@ -22,6 +18,14 @@ function BookShelf() {
     setBooks(booksWithProgress);
     setLoading(false);
   };
+
+  useEffect(() => {
+    const initializeBookshelf = async () => {
+      await loadBooks();
+    };
+
+    void initializeBookshelf();
+  }, []);
 
   const handleDelete = async (bookId) => {
     if (window.confirm('确定要删除这本书吗？')) {

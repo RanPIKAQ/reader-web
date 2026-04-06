@@ -20,6 +20,7 @@ export const saveReadingProgress = async (bookId, progress) => {
     cfi: progress.cfi,
     percentage: progress.percentage,
     chapterId: progress.chapterId,
+    txtPosition: progress.txtPosition,
     timestamp: Date.now(),
   });
 };

@@ -6,8 +6,120 @@ import { getChapterContent } from '../hooks/useBookParser';
 const CHAPTER_BOUNDARY_THRESHOLD = 580;
 const BOUNDARY_RESET_DELAY = 700;
 const CHAPTER_TRANSITION_GUARD_DELAY = 250;
+const TXT_PROGRESS_SAMPLE_INTERVAL = 200;
+const TXT_ANCHOR_TEXT_LENGTH = 80;
 
-function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMode }) {
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildTxtLineMap(text) {
+  const lines = text.split('\n');
+  let cursor = 0;
+
+  return lines.map((lineText, lineIndex) => {
+    const startOffset = cursor;
+    const endOffset = startOffset + lineText.length;
+
+    cursor = endOffset + (lineIndex < lines.length - 1 ? 1 : 0);
+
+    return {
+      lineIndex,
+      text: lineText,
+      startOffset,
+      endOffset,
+    };
+  });
+}
+
+function createLayoutFingerprint(settings) {
+  return {
+    fontSize: settings.fontSize,
+    fontFamily: settings.fontFamily,
+    fontWeight: settings.fontWeight,
+    lineHeight: settings.lineHeight,
+    contentWidth: settings.contentWidth,
+  };
+}
+
+function hasMatchingLayoutFingerprint(savedFingerprint, currentFingerprint) {
+  if (!savedFingerprint) return false;
+
+  return (
+    savedFingerprint.fontSize === currentFingerprint.fontSize
+    && savedFingerprint.fontFamily === currentFingerprint.fontFamily
+    && savedFingerprint.fontWeight === currentFingerprint.fontWeight
+    && savedFingerprint.lineHeight === currentFingerprint.lineHeight
+    && savedFingerprint.contentWidth === currentFingerprint.contentWidth
+  );
+}
+
+function findLineElementByOffset(content, targetOffset) {
+  const { children } = content;
+  if (!children.length) return null;
+
+  let low = 0;
+  let high = children.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const element = children[mid];
+    const top = element.offsetTop;
+    const bottom = top + element.offsetHeight;
+
+    if (targetOffset < top) {
+      high = mid - 1;
+    } else if (targetOffset > bottom) {
+      low = mid + 1;
+    } else {
+      return element;
+    }
+  }
+
+  const candidateIndex = clamp(low, 0, children.length - 1);
+  return children[candidateIndex];
+}
+
+function resolveMatchedLineIndex(lines, savedPosition) {
+  if (!lines.length || !savedPosition) return -1;
+
+  const { lineIndex, lineStartOffset, anchorText } = savedPosition;
+  const anchor = anchorText || '';
+  const indexedLine = Number.isInteger(lineIndex) ? lines[lineIndex] : null;
+
+  if (indexedLine) {
+    const matchesOffset = indexedLine.startOffset === lineStartOffset;
+    const matchesAnchor = !anchor || indexedLine.text.startsWith(anchor);
+    if (matchesOffset && matchesAnchor) {
+      return indexedLine.lineIndex;
+    }
+  }
+
+  if (Number.isInteger(lineStartOffset)) {
+    const offsetMatch = lines.find((line) => line.startOffset === lineStartOffset);
+    if (offsetMatch) {
+      return offsetMatch.lineIndex;
+    }
+  }
+
+  if (anchor) {
+    const anchorMatch = lines.find((line) => line.text.startsWith(anchor));
+    if (anchorMatch) {
+      return anchorMatch.lineIndex;
+    }
+  }
+
+  return -1;
+}
+
+function BookReader({
+  bookId,
+  settings,
+  onProgressUpdate,
+  onProgressFlush,
+  zenMode,
+  onToggleZenMode,
+}) {
   const readerContainerRef = useRef(null);
   const containerRef = useRef(null);
   const txtContentRef = useRef(null);
@@ -17,7 +129,11 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   const boundaryResetTimerRef = useRef(null);
   const chapterTransitionTimerRef = useRef(null);
   const isChapterTransitioningRef = useRef(false);
-  const pendingTxtScrollTargetRef = useRef(null);
+  const pendingTxtRestoreRef = useRef(null);
+  const restoreFrameRef = useRef(null);
+  const txtProgressTimerRef = useRef(null);
+  const lastTxtProgressSampleAtRef = useRef(0);
+  const suspendTxtProgressCaptureRef = useRef(false);
 
   const [toc, setToc] = useState([]);
   const [volumes, setVolumes] = useState([]);
@@ -26,29 +142,43 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
   const [bookMeta, setBookMeta] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // TXT 章节相关状态
   const [flatChapters, setFlatChapters] = useState([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-  const [chapterContent, setChapterContent] = useState('');
+  const [chapterLines, setChapterLines] = useState([]);
   const [fullText, setFullText] = useState('');
   const [boundaryScrollState, setBoundaryScrollState] = useState(null);
 
-  // 卷折叠状态
   const [collapsedVolumes, setCollapsedVolumes] = useState({});
 
-  // 使用 ref 存储最新值，避免依赖问题
   const fullTextRef = useRef('');
   const flatChaptersRef = useRef([]);
+  const chapterLinesRef = useRef([]);
   const onProgressUpdateRef = useRef(onProgressUpdate);
+  const onProgressFlushRef = useRef(onProgressFlush);
   const isTxt = bookMeta?.type === 'txt';
 
-  // 保持 ref 更新
   useEffect(() => {
     fullTextRef.current = fullText;
     flatChaptersRef.current = flatChapters;
+    chapterLinesRef.current = chapterLines;
     onProgressUpdateRef.current = onProgressUpdate;
+    onProgressFlushRef.current = onProgressFlush;
     currentChapterIndexRef.current = currentChapterIndex;
-  }, [fullText, flatChapters, onProgressUpdate, currentChapterIndex]);
+  }, [fullText, flatChapters, chapterLines, onProgressUpdate, onProgressFlush, currentChapterIndex]);
+
+  const cancelPendingRestoreFrame = useCallback(() => {
+    if (restoreFrameRef.current) {
+      window.cancelAnimationFrame(restoreFrameRef.current);
+      restoreFrameRef.current = null;
+    }
+  }, []);
+
+  const clearTxtProgressTimer = useCallback(() => {
+    if (txtProgressTimerRef.current) {
+      clearTimeout(txtProgressTimerRef.current);
+      txtProgressTimerRef.current = null;
+    }
+  }, []);
 
   const setBoundaryState = useCallback((nextState) => {
     boundaryScrollStateRef.current = nextState;
@@ -91,7 +221,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     }, CHAPTER_TRANSITION_GUARD_DELAY);
   }, [clearChapterTransitionTimer]);
 
-  // 切换单个卷的折叠状态
   const toggleVolume = useCallback((volId) => {
     setCollapsedVolumes(prev => ({
       ...prev,
@@ -99,7 +228,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     }));
   }, []);
 
-  // 全部展开
   const expandAll = useCallback(() => {
     setCollapsedVolumes(prev => {
       const next = { ...prev };
@@ -110,7 +238,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     });
   }, [volumes]);
 
-  // 全部折叠
   const collapseAll = useCallback(() => {
     setCollapsedVolumes(prev => {
       const next = { ...prev };
@@ -121,206 +248,407 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     });
   }, [volumes]);
 
-  // TXT 模式下加载章节内容
-  const loadTxtChapter = useCallback(async (chapterIndex, options = {}) => {
-    const { scrollTarget = 'start' } = options;
+  const getCurrentTxtProgress = useCallback(() => {
+    const content = txtContentRef.current;
     const text = fullTextRef.current;
     const chapters = flatChaptersRef.current;
-    const progressCb = onProgressUpdateRef.current;
+    const chapterIndex = currentChapterIndexRef.current;
+    const chapter = chapters[chapterIndex];
+    const lines = chapterLinesRef.current;
+
+    if (!content || !text || !chapter || !lines.length) {
+      return null;
+    }
+
+    const maxScrollTop = Math.max(content.scrollHeight - content.clientHeight, 0);
+    const scrollTop = clamp(content.scrollTop, 0, maxScrollTop);
+    const scrollRatio = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0;
+    const focusOffset = scrollTop + (content.clientHeight / 2);
+    const lineElement = findLineElementByOffset(content, focusOffset);
+    const lineIndex = lineElement ? Number(lineElement.dataset.lineIndex || 0) : 0;
+    const anchorLine = lines[lineIndex] || lines[0];
+    const lineTop = lineElement ? lineElement.offsetTop : 0;
+    const lineHeight = lineElement ? Math.max(lineElement.offsetHeight, 1) : 1;
+    const lineOffsetRatio = lineElement
+      ? clamp((focusOffset - lineTop) / lineHeight, 0, 1)
+      : 0;
+    const chapterLength = Math.max(chapter.end - chapter.start, 1);
+    const effectiveScrollRatio = maxScrollTop > 0
+      ? scrollRatio
+      : (chapterIndex === chapters.length - 1 ? 1 : 0);
+    const percentage = clamp(
+      ((chapter.start + (chapterLength * effectiveScrollRatio)) / Math.max(text.length, 1)) * 100,
+      0,
+      100
+    );
+
+    return {
+      chapterId: chapter.id,
+      percentage,
+      txtPosition: {
+        scrollTop,
+        scrollRatio,
+        lineIndex: anchorLine.lineIndex,
+        lineStartOffset: anchorLine.startOffset,
+        lineOffsetRatio,
+        anchorText: anchorLine.text.slice(0, TXT_ANCHOR_TEXT_LENGTH),
+        layoutFingerprint: createLayoutFingerprint(settings),
+      },
+    };
+  }, [settings]);
+
+  const captureTxtProgress = useCallback((options = {}) => {
+    const { immediate = false, flush = false } = options;
+
+    const saveProgress = () => {
+      clearTxtProgressTimer();
+      lastTxtProgressSampleAtRef.current = Date.now();
+
+      const nextProgress = getCurrentTxtProgress();
+      if (!nextProgress) return;
+
+      if (flush) {
+        const flushProgress = onProgressFlushRef.current || onProgressUpdateRef.current;
+        flushProgress?.(nextProgress);
+        return;
+      }
+
+      onProgressUpdateRef.current?.(nextProgress);
+    };
+
+    if (immediate) {
+      saveProgress();
+      return;
+    }
+
+    const elapsed = Date.now() - lastTxtProgressSampleAtRef.current;
+    if (elapsed >= TXT_PROGRESS_SAMPLE_INTERVAL) {
+      saveProgress();
+      return;
+    }
+
+    if (!txtProgressTimerRef.current) {
+      txtProgressTimerRef.current = window.setTimeout(
+        saveProgress,
+        TXT_PROGRESS_SAMPLE_INTERVAL - elapsed
+      );
+    }
+  }, [clearTxtProgressTimer, getCurrentTxtProgress]);
+
+  const loadTxtChapter = useCallback(async (chapterIndex, options = {}) => {
+    const {
+      restoreMode = 'start',
+      savedPosition = null,
+      persistAfterRestore = false,
+    } = options;
+    const text = fullTextRef.current;
+    const chapters = flatChaptersRef.current;
 
     if (!text || chapters.length === 0) return chapterIndex;
     if (chapterIndex < 0 || chapterIndex >= chapters.length) return chapterIndex;
 
     const chapter = chapters[chapterIndex];
-    if (chapter) {
-      resetBoundaryScroll();
-      pendingTxtScrollTargetRef.current = scrollTarget;
-      const content = getChapterContent(text, chapter);
-      setChapterContent(content);
-      currentChapterIndexRef.current = chapterIndex;
-      setCurrentChapterIndex(chapterIndex);
+    if (!chapter) return chapterIndex;
 
-      // 保存阅读进度
-      const progress = {
-        chapterId: chapter.id,
-        percentage: ((chapterIndex + 1) / chapters.length) * 100,
-      };
-      progressCb(progress);
-    }
+    cancelPendingRestoreFrame();
+    clearTxtProgressTimer();
+    suspendTxtProgressCaptureRef.current = false;
+    resetBoundaryScroll();
+    pendingTxtRestoreRef.current = {
+      mode: restoreMode,
+      savedPosition,
+      persistAfterRestore,
+    };
+
+    const content = getChapterContent(text, chapter);
+    setChapterLines(buildTxtLineMap(content));
+    currentChapterIndexRef.current = chapterIndex;
+    setCurrentChapterIndex(chapterIndex);
+
     return chapterIndex;
-  }, [resetBoundaryScroll]);
+  }, [cancelPendingRestoreFrame, clearTxtProgressTimer, resetBoundaryScroll]);
 
   useLayoutEffect(() => {
-    if (!isTxt || !txtContentRef.current || !pendingTxtScrollTargetRef.current) return;
+    if (!isTxt || !txtContentRef.current || !pendingTxtRestoreRef.current) return;
 
     const content = txtContentRef.current;
-    if (pendingTxtScrollTargetRef.current === 'end') {
-      content.scrollTop = Math.max(content.scrollHeight - content.clientHeight, 0);
-    } else {
-      content.scrollTop = 0;
+    const pendingRestore = pendingTxtRestoreRef.current;
+    const lines = chapterLinesRef.current;
+    const currentFingerprint = createLayoutFingerprint(settings);
+    const maxScrollTop = Math.max(content.scrollHeight - content.clientHeight, 0);
+    let nextScrollTop = 0;
+
+    if (pendingRestore.mode === 'end') {
+      nextScrollTop = maxScrollTop;
+    } else if (pendingRestore.mode === 'saved' && pendingRestore.savedPosition) {
+      const { savedPosition } = pendingRestore;
+
+      if (hasMatchingLayoutFingerprint(savedPosition.layoutFingerprint, currentFingerprint)) {
+        nextScrollTop = clamp(savedPosition.scrollTop || 0, 0, maxScrollTop);
+      } else {
+        const matchedLineIndex = resolveMatchedLineIndex(lines, savedPosition);
+        const matchedElement = matchedLineIndex >= 0 ? content.children[matchedLineIndex] : null;
+
+        if (matchedElement) {
+          const lineHeight = Math.max(matchedElement.offsetHeight, 1);
+          const lineOffset = clamp(savedPosition.lineOffsetRatio || 0, 0, 1) * lineHeight;
+          nextScrollTop = clamp(
+            matchedElement.offsetTop + lineOffset - (content.clientHeight / 2),
+            0,
+            maxScrollTop
+          );
+        } else if (Number.isFinite(savedPosition.scrollRatio)) {
+          nextScrollTop = clamp(savedPosition.scrollRatio * maxScrollTop, 0, maxScrollTop);
+        }
+      }
     }
 
-    pendingTxtScrollTargetRef.current = null;
-  }, [chapterContent, currentChapterIndex, isTxt]);
+    suspendTxtProgressCaptureRef.current = true;
+    content.scrollTop = nextScrollTop;
+    pendingTxtRestoreRef.current = null;
+    cancelPendingRestoreFrame();
+    restoreFrameRef.current = window.requestAnimationFrame(() => {
+      suspendTxtProgressCaptureRef.current = false;
+      restoreFrameRef.current = null;
 
-  // 上一页（章节模式）
+      if (pendingRestore.persistAfterRestore) {
+        captureTxtProgress({ immediate: true, flush: true });
+      }
+    });
+  }, [chapterLines, currentChapterIndex, isTxt, settings, captureTxtProgress, cancelPendingRestoreFrame]);
+
   const prevChapter = useCallback(() => {
-    const newIndex = currentChapterIndex - 1;
+    const newIndex = currentChapterIndexRef.current - 1;
     if (newIndex >= 0) {
-      loadTxtChapter(newIndex);
+      loadTxtChapter(newIndex, { persistAfterRestore: true });
     }
-  }, [currentChapterIndex, loadTxtChapter]);
+  }, [loadTxtChapter]);
 
-  // 下一页（章节模式）
   const nextChapter = useCallback(() => {
-    const newIndex = currentChapterIndex + 1;
+    const newIndex = currentChapterIndexRef.current + 1;
     if (newIndex < flatChaptersRef.current.length) {
-      loadTxtChapter(newIndex);
+      loadTxtChapter(newIndex, { persistAfterRestore: true });
     }
-  }, [currentChapterIndex, loadTxtChapter]);
+  }, [loadTxtChapter]);
 
-  // 加载书籍
-  const loadBook = useCallback(async () => {
-    const bookInfo = await getBookData(bookId);
-    if (!bookInfo) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    let isCancelled = false;
 
-    setBookMeta(bookInfo);
+    const loadCurrentBook = async () => {
+      setLoading(true);
 
-    if (bookInfo.type === 'txt') {
-      const text = await getTxtContent(bookId);
-      if (!text) {
+      const bookInfo = await getBookData(bookId);
+      if (isCancelled) return;
+
+      if (!bookInfo) {
         setLoading(false);
         return;
       }
 
-      // 兼容旧数据：如果没有 flatChapters，尝试从 chapters 转换
-      let chapters = bookInfo.flatChapters || bookInfo.chapters || [];
-      let vols = bookInfo.volumes || [];
+      setBookMeta(bookInfo);
 
-      // 如果既没有 volumes 也没有 flatChapters，创建一个默认卷
-      if (chapters.length === 0) {
-        chapters = [{
-          id: 'ch_0',
-          title: '全文',
-          start: 0,
-          end: text.length
-        }];
-        vols = [{
-          id: 'vol_0',
-          title: '全文',
-          start: 0,
-          end: text.length,
-          children: chapters
-        }];
-      } else if (vols.length === 0) {
-        // 有章节但没有卷结构，创建一个默认卷
-        vols = [{
-          id: 'vol_0',
-          title: '正文',
-          start: 0,
-          end: text.length,
-          children: chapters
-        }];
-      }
+      if (bookInfo.type === 'txt') {
+        const text = await getTxtContent(bookId);
+        if (isCancelled) return;
 
-      setFullText(text);
-      setFlatChapters(chapters);
-      setVolumes(vols);
-      setToc(chapters.map(ch => ({ label: ch.title, href: ch.id })));
-
-      // 初始化折叠状态（默认全部折叠）
-      const initialCollapsed = {};
-      vols.forEach(vol => {
-        initialCollapsed[vol.id] = true;
-      });
-      setCollapsedVolumes(initialCollapsed);
-
-      // 恢复阅读进度
-      const savedProgress = await getReadingProgress(bookId);
-      let startChapterIndex = 0;
-      if (savedProgress?.chapterId) {
-        const chapterIndex = chapters.findIndex(ch => ch.id === savedProgress.chapterId);
-        if (chapterIndex >= 0) {
-          startChapterIndex = chapterIndex;
+        if (!text) {
+          setLoading(false);
+          return;
         }
+
+        let chapters = bookInfo.flatChapters || bookInfo.chapters || [];
+        let vols = bookInfo.volumes || [];
+
+        if (chapters.length === 0) {
+          chapters = [{
+            id: 'ch_0',
+            title: '全文',
+            start: 0,
+            end: text.length
+          }];
+          vols = [{
+            id: 'vol_0',
+            title: '全文',
+            start: 0,
+            end: text.length,
+            children: chapters
+          }];
+        } else if (vols.length === 0) {
+          vols = [{
+            id: 'vol_0',
+            title: '正文',
+            start: 0,
+            end: text.length,
+            children: chapters
+          }];
+        }
+
+        setFullText(text);
+        setFlatChapters(chapters);
+        setVolumes(vols);
+        setToc(chapters.map(ch => ({ label: ch.title, href: ch.id })));
+
+        const initialCollapsed = {};
+        vols.forEach(vol => {
+          initialCollapsed[vol.id] = true;
+        });
+        setCollapsedVolumes(initialCollapsed);
+
+        const savedProgress = await getReadingProgress(bookId);
+        if (isCancelled) return;
+
+        let startChapterIndex = 0;
+        let restoreMode = 'start';
+        let savedPosition = null;
+
+        if (savedProgress?.chapterId) {
+          const chapterIndex = chapters.findIndex(ch => ch.id === savedProgress.chapterId);
+          if (chapterIndex >= 0) {
+            startChapterIndex = chapterIndex;
+          }
+        }
+
+        if (savedProgress?.txtPosition) {
+          restoreMode = 'saved';
+          savedPosition = savedProgress.txtPosition;
+        }
+
+        const chapter = chapters[startChapterIndex];
+        if (chapter) {
+          pendingTxtRestoreRef.current = {
+            mode: restoreMode,
+            savedPosition,
+            persistAfterRestore: false,
+          };
+          const content = getChapterContent(text, chapter);
+          setChapterLines(buildTxtLineMap(content));
+          currentChapterIndexRef.current = startChapterIndex;
+          setCurrentChapterIndex(startChapterIndex);
+        } else {
+          setChapterLines([]);
+        }
+
+        setLoading(false);
+        return;
       }
 
-      // 加载第一章或上次阅读的章节
-      const chapter = chapters[startChapterIndex];
-      if (chapter) {
-        pendingTxtScrollTargetRef.current = 'start';
-        const content = getChapterContent(text, chapter);
-        setChapterContent(content);
-        currentChapterIndexRef.current = startChapterIndex;
-        setCurrentChapterIndex(startChapterIndex);
-      }
+      if (bookInfo.type === 'epub') {
+        const arrayBuffer = await bookInfo.file?.arrayBuffer()
+          || await fetch(bookInfo.fileUrl).then(r => r.arrayBuffer());
+        if (isCancelled) return;
 
-      setLoading(false);
-      return;
-    }
+        const book = epubjs(arrayBuffer);
+        await book.ready;
+        if (isCancelled) return;
 
-    if (bookInfo.type === 'epub') {
-      const arrayBuffer = await bookInfo.file?.arrayBuffer()
-        || await fetch(bookInfo.fileUrl).then(r => r.arrayBuffer());
+        const navigation = await book.loaded.navigation;
+        if (isCancelled) return;
+        setToc(navigation.toc);
 
-      const book = epubjs(arrayBuffer);
-      await book.ready;
+        const savedProgress = await getReadingProgress(bookId);
+        if (isCancelled) return;
 
-      const navigation = await book.loaded.navigation;
-      setToc(navigation.toc);
+        renditionRef.current = book.renderTo(containerRef.current, {
+          width: '100%',
+          height: '100%',
+          spread: 'none',
+        });
 
-      const savedProgress = await getReadingProgress(bookId);
+        await renditionRef.current.display();
+        if (isCancelled) return;
 
-      renditionRef.current = book.renderTo(containerRef.current, {
-        width: '100%',
-        height: '100%',
-        spread: 'none',
-      });
+        if (savedProgress?.cfi) {
+          await renditionRef.current.display(savedProgress.cfi);
+          if (isCancelled) return;
+        }
 
-      await renditionRef.current.display();
+        renditionRef.current.on('relocated', (location) => {
+          const percentage = book.locations.length > 0
+            ? book.locations.percentageFromCFI(location.start.cfi)
+            : 0;
+          setCurrentLocation(location.start);
+          onProgressUpdateRef.current?.({ cfi: location.start.cfi, percentage });
+        });
 
-      if (savedProgress?.cfi) {
-        await renditionRef.current.display(savedProgress.cfi);
-      }
-
-      renditionRef.current.on('relocated', (location) => {
-        const percentage = book.locations.length > 0
-          ? book.locations.percentageFromCFI(location.start.cfi)
-          : 0;
-        setCurrentLocation(location.start);
-        onProgressUpdate({ cfi: location.start.cfi, percentage });
-      });
-
-      setLoading(false);
-    }
-  }, [bookId, onProgressUpdate]);
-
-  // 只在 bookId 变化时加载书籍
-  useEffect(() => {
-    loadBook();
-    return () => {
-      if (renditionRef.current) {
-        renditionRef.current.destroy();
+        setLoading(false);
       }
     };
-  }, [loadBook]);
+
+    void loadCurrentBook();
+
+    return () => {
+      isCancelled = true;
+      cancelPendingRestoreFrame();
+      clearTxtProgressTimer();
+      if (renditionRef.current) {
+        renditionRef.current.destroy();
+        renditionRef.current = null;
+      }
+    };
+  }, [bookId, cancelPendingRestoreFrame, clearTxtProgressTimer]);
 
   useEffect(() => {
     return () => {
       clearBoundaryResetTimer();
       clearChapterTransitionTimer();
+      clearTxtProgressTimer();
+      cancelPendingRestoreFrame();
     };
-  }, [clearBoundaryResetTimer, clearChapterTransitionTimer]);
+  }, [
+    cancelPendingRestoreFrame,
+    clearBoundaryResetTimer,
+    clearChapterTransitionTimer,
+    clearTxtProgressTimer,
+  ]);
 
   useEffect(() => {
-    if (zenMode && isTxt) return;
-    resetBoundaryScroll();
-    clearChapterTransitionTimer();
-    isChapterTransitioningRef.current = false;
+    if (zenMode && isTxt) return undefined;
+
+    const timerId = window.setTimeout(() => {
+      resetBoundaryScroll();
+      clearChapterTransitionTimer();
+      isChapterTransitioningRef.current = false;
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, [zenMode, isTxt, resetBoundaryScroll, clearChapterTransitionTimer]);
+
+  useEffect(() => {
+    const content = txtContentRef.current;
+    if (!content || !isTxt) return undefined;
+
+    const handleScroll = () => {
+      if (suspendTxtProgressCaptureRef.current) return;
+      captureTxtProgress();
+    };
+
+    content.addEventListener('scroll', handleScroll, { passive: true });
+    return () => content.removeEventListener('scroll', handleScroll);
+  }, [isTxt, captureTxtProgress, chapterLines, currentChapterIndex]);
+
+  useEffect(() => {
+    if (!isTxt) return undefined;
+
+    const flushCurrentProgress = () => {
+      if (suspendTxtProgressCaptureRef.current) return;
+      captureTxtProgress({ immediate: true, flush: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushCurrentProgress();
+      }
+    };
+
+    window.addEventListener('pagehide', flushCurrentProgress);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      flushCurrentProgress();
+      window.removeEventListener('pagehide', flushCurrentProgress);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isTxt, captureTxtProgress]);
 
   useEffect(() => {
     const container = readerContainerRef.current;
@@ -368,7 +696,10 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
         if (nextValue >= CHAPTER_BOUNDARY_THRESHOLD) {
           startChapterTransitionGuard();
           resetBoundaryScroll();
-          loadTxtChapter(targetIndex, { scrollTarget: 'end' });
+          loadTxtChapter(targetIndex, {
+            restoreMode: 'end',
+            persistAfterRestore: true,
+          });
         }
         return;
       }
@@ -400,7 +731,7 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
         if (nextValue >= CHAPTER_BOUNDARY_THRESHOLD) {
           startChapterTransitionGuard();
           resetBoundaryScroll();
-          loadTxtChapter(targetIndex);
+          loadTxtChapter(targetIndex, { persistAfterRestore: true });
         }
         return;
       }
@@ -423,7 +754,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     startChapterTransitionGuard,
   ]);
 
-  // 键盘左右键监听
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (showToc) return;
@@ -435,10 +765,8 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         nextChapter();
-      } else if (e.key === 'Escape') {
-        if (zenMode) {
-          onToggleZenMode?.();
-        }
+      } else if (e.key === 'Escape' && zenMode) {
+        onToggleZenMode?.();
       }
     };
 
@@ -492,12 +820,11 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     ? Math.min((boundaryScrollState.value / CHAPTER_BOUNDARY_THRESHOLD) * 100, 100)
     : 0;
 
-  // 点击目录项
   const handleTocClick = useCallback((href) => {
     if (isTxt) {
       const index = flatChapters.findIndex(ch => ch.id === href);
       if (index >= 0) {
-        loadTxtChapter(index);
+        loadTxtChapter(index, { persistAfterRestore: true });
       }
       setShowToc(false);
     } else {
@@ -505,7 +832,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
     }
   }, [isTxt, flatChapters, loadTxtChapter, goTo]);
 
-  // 渲染层级目录
   const renderTocList = () => {
     if (isTxt && volumes.length > 0) {
       return (
@@ -545,7 +871,6 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
       );
     }
 
-    // EPUB 目录
     return (
       <nav className="toc-list">
         {toc.map((item, index) => (
@@ -575,7 +900,16 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
           className="txt-content"
           style={readerStyle}
         >
-          {chapterContent}
+          {chapterLines.map((line) => (
+            <div
+              key={`${currentChapterIndex}-${line.lineIndex}-${line.startOffset}`}
+              className="txt-line"
+              data-line-index={line.lineIndex}
+              data-line-start={line.startOffset}
+            >
+              {line.text || ' '}
+            </div>
+          ))}
         </div>
       ) : (
         <div ref={containerRef} className="epub-container" />
@@ -603,14 +937,12 @@ function BookReader({ bookId, settings, onProgressUpdate, zenMode, onToggleZenMo
         </div>
       )}
 
-      {/* 禅模式退出按钮 - 右下角 */}
       {zenMode && (
         <button className="zen-mode-btn" onClick={onToggleZenMode}>
           ☯
         </button>
       )}
 
-      {/* 非禅模式显示底部栏 */}
       {!zenMode && (
         <div className="reader-footer">
           <button className="footer-btn" onClick={() => setShowToc(true)}>

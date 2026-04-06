@@ -9,13 +9,17 @@ function Reader() {
   const { bookId } = useParams();
   const navigate = useNavigate();
   const { settings, updateSettings } = useSettings();
-  const { progress, updateProgress } = useReadingProgress(bookId);
+  const { updateProgress, flushProgress } = useReadingProgress(bookId);
   const [showStylePanel, setShowStylePanel] = useState(false);
   const [zenMode, setZenMode] = useState(false);
 
   const handleProgressUpdate = useCallback((newProgress) => {
     updateProgress(newProgress);
   }, [updateProgress]);
+
+  const handleProgressFlush = useCallback((newProgress) => {
+    flushProgress(newProgress);
+  }, [flushProgress]);
 
   const toggleZenMode = useCallback(() => {
     setZenMode(prev => !prev);
@@ -47,6 +51,7 @@ function Reader() {
           bookId={bookId}
           settings={settings}
           onProgressUpdate={handleProgressUpdate}
+          onProgressFlush={handleProgressFlush}
           onUpdateSettings={updateSettings}
           zenMode={zenMode}
           onToggleZenMode={toggleZenMode}

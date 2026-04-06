@@ -530,6 +530,10 @@ button {
   overflow-y: auto;
 }
 
+.txt-line {
+  min-height: 1em;
+}
+
 .reader-footer {
   display: flex;
   justify-content: space-between;

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 
 const FONTS = [
   { label: '宋体', value: 'Georgia, serif' },
