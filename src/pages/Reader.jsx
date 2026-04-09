@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import './Reader.css';
 import BookReader from '../components/BookReader';
 import StylePanel from '../components/StylePanel';
 import { useSettings } from '../hooks/useSettings';
