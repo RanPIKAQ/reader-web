@@ -2,12 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import './BookShelf.css';
 import {
-  getAllBooks,
-  getBookAsset,
-  getReadingProgress,
   removeBook,
   clearAllData,
   exportAllData,
+  getBookshelfEntries,
   importAllData,
 } from '../utils/storage';
 
@@ -20,23 +18,8 @@ function BookShelf() {
 
   const loadBooks = async () => {
     setError('');
-    const allBooks = await getAllBooks();
-    const booksWithProgress = await Promise.all(
-      allBooks.map(async (book) => {
-        const [progress, asset] = await Promise.all([
-          getReadingProgress(book.id),
-          getBookAsset(book.id),
-        ]);
-
-        return {
-          ...book,
-          progress,
-          assetMissing: book.assetMissing || !asset,
-          assetMissingMessage: book.assetMissingMessage || (!asset ? '源文件缺失，请重新导入。' : null),
-        };
-      })
-    );
-    setBooks(booksWithProgress);
+    const nextBooks = await getBookshelfEntries();
+    setBooks(nextBooks);
     setLoading(false);
   };
 

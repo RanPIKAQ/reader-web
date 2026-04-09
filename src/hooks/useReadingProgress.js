@@ -26,8 +26,9 @@ export function useReadingProgress(bookId) {
     }
     saveTimeoutRef.current = setTimeout(() => {
       if (bookId) {
-        saveReadingProgress(bookId, newProgress);
+        void saveReadingProgress(bookId, latestProgressRef.current);
       }
+      saveTimeoutRef.current = null;
     }, 500);
   }, [bookId]);
 
@@ -47,6 +48,10 @@ export function useReadingProgress(bookId) {
   }, [bookId]);
 
   const clearProgress = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
     setProgress({ cfi: null, percentage: 0 });
     latestProgressRef.current = { cfi: null, percentage: 0 };
   }, []);
