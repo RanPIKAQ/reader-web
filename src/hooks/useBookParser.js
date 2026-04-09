@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import epubjs from 'epubjs';
+import { buildEpubBookRecord, buildTxtBookRecord } from '../utils/book';
+import { parseEpubAsset } from '../utils/epub';
 
 // 判断标题是卷还是章
 function getTitleType(title) {
@@ -149,14 +150,14 @@ export function useBookParser() {
         const text = await file.text();
         const { volumes, flatChapters } = parseTxtChapters(text);
 
-        const bookData = {
-          id: `txt_${Date.now()}`,
+        const bookData = buildTxtBookRecord({
           title: file.name.replace('.txt', ''),
           author: '未知作者',
-          type: 'txt',
-          volumes: volumes,
-          flatChapters: flatChapters,
-        };
+          fileName: file.name,
+          addedAt: Date.now(),
+          volumes,
+          flatChapters,
+        });
 
         setBook(bookData);
         setMetadata({
@@ -167,24 +168,50 @@ export function useBookParser() {
         // TOC 使用 flatChapters 用于目录导航
         setToc(flatChapters.map(ch => ({ label: ch.title, href: ch.id })));
 
-        return { ...bookData, content: text };
+        return {
+          book: bookData,
+          asset: {
+            kind: 'txt',
+            text,
+          },
+          navigation: {
+            toc: bookData.toc,
+            volumes,
+            flatChapters,
+          },
+        };
       }
 
       if (fileType === 'epub') {
-        const arrayBuffer = await file.arrayBuffer();
-        const epubBook = epubjs(arrayBuffer);
-        const epubMetadata = await epubBook.loaded.metadata;
-        const epubToc = await epubBook.loaded.navigation;
-
-        setBook(epubBook);
-        setMetadata({
-          title: epubMetadata.title || file.name,
-          author: epubMetadata.creator || '未知作者',
-          cover: epubMetadata.cover,
+        const epubData = await parseEpubAsset(file, file.name.replace(/\.epub$/i, ''));
+        const bookData = buildEpubBookRecord({
+          title: epubData.title || file.name,
+          author: epubData.author || '未知作者',
+          fileName: file.name,
+          addedAt: Date.now(),
+          cover: epubData.cover,
+          toc: epubData.toc,
         });
-        setToc(epubToc.toc);
 
-        return { epubBook, metadata: epubMetadata, toc: epubToc.toc };
+        setBook(bookData);
+        setMetadata({
+          title: bookData.title,
+          author: bookData.author,
+          cover: bookData.cover,
+        });
+        setToc(bookData.toc);
+
+        return {
+          book: bookData,
+          asset: {
+            kind: 'epub',
+            blob: file,
+            mimeType: file.type || 'application/epub+zip',
+          },
+          navigation: {
+            toc: bookData.toc,
+          },
+        };
       }
 
       setError('不支持的文件格式');
@@ -203,16 +230,41 @@ export function useBookParser() {
     setError(null);
 
     try {
-      const epubBook = epubjs(url);
-      await epubBook.ready;
-      const metadata = await epubBook.loaded.metadata;
-      const toc = await epubBook.loaded.navigation;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('书籍地址加载失败');
+      }
 
-      setBook(epubBook);
-      setMetadata(metadata);
-      setToc(toc.toc);
+      const blob = await response.blob();
+      const epubData = await parseEpubAsset(blob, '远程 EPUB');
+      const bookData = buildEpubBookRecord({
+        title: epubData.title,
+        author: epubData.author,
+        fileName: url.split('/').pop() || 'remote.epub',
+        addedAt: Date.now(),
+        cover: epubData.cover,
+        toc: epubData.toc,
+      });
 
-      return { epubBook, metadata, toc: toc.toc };
+      setBook(bookData);
+      setMetadata({
+        title: bookData.title,
+        author: bookData.author,
+        cover: bookData.cover,
+      });
+      setToc(bookData.toc);
+
+      return {
+        book: bookData,
+        asset: {
+          kind: 'epub',
+          blob,
+          mimeType: blob.type || 'application/epub+zip',
+        },
+        navigation: {
+          toc: bookData.toc,
+        },
+      };
     } catch (err) {
       setError(err.message);
       console.error('Parse URL error:', err);

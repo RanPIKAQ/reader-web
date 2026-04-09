@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
-import epubjs from 'epubjs';
-import { getBookData, getReadingProgress, getTxtContent } from '../utils/storage';
+import { createEpubBookFromBlob, flattenEpubToc } from '../utils/epub';
+import {
+  getBookAsset,
+  getBookData,
+  getReadingProgress,
+  saveBookData,
+} from '../utils/storage';
 import { getChapterContent } from '../hooks/useBookParser';
 
 const CHAPTER_BOUNDARY_THRESHOLD = 580;
@@ -124,6 +129,7 @@ function BookReader({
   const containerRef = useRef(null);
   const txtContentRef = useRef(null);
   const renditionRef = useRef(null);
+  const epubBookRef = useRef(null);
   const currentChapterIndexRef = useRef(0);
   const boundaryScrollStateRef = useRef(null);
   const boundaryResetTimerRef = useRef(null);
@@ -141,6 +147,7 @@ function BookReader({
   const [showToc, setShowToc] = useState(false);
   const [bookMeta, setBookMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [flatChapters, setFlatChapters] = useState([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -436,11 +443,14 @@ function BookReader({
 
     const loadCurrentBook = async () => {
       setLoading(true);
+      setError('');
+      setCurrentLocation(null);
 
       const bookInfo = await getBookData(bookId);
       if (isCancelled) return;
 
       if (!bookInfo) {
+        setError('未找到对应书籍。');
         setLoading(false);
         return;
       }
@@ -448,13 +458,22 @@ function BookReader({
       setBookMeta(bookInfo);
 
       if (bookInfo.type === 'txt') {
-        const text = await getTxtContent(bookId);
+        const asset = await getBookAsset(bookId);
         if (isCancelled) return;
 
-        if (!text) {
+        if (!asset || asset.kind !== 'txt' || typeof asset.text !== 'string') {
+          const missingMessage = bookInfo.assetMissingMessage || '书籍内容缺失，请重新导入该书籍。';
+          setError(missingMessage);
+          await saveBookData(bookInfo.id, {
+            ...bookInfo,
+            assetMissing: true,
+            assetMissingMessage: missingMessage,
+          });
           setLoading(false);
           return;
         }
+
+        const text = asset.text;
 
         let chapters = bookInfo.flatChapters || bookInfo.chapters || [];
         let vols = bookInfo.volumes || [];
@@ -533,17 +552,56 @@ function BookReader({
       }
 
       if (bookInfo.type === 'epub') {
-        const arrayBuffer = await bookInfo.file?.arrayBuffer()
-          || await fetch(bookInfo.fileUrl).then(r => r.arrayBuffer());
+        const asset = await getBookAsset(bookId);
         if (isCancelled) return;
 
-        const book = epubjs(arrayBuffer);
-        await book.ready;
+        if (!asset || asset.kind !== 'epub' || !(asset.blob instanceof Blob)) {
+          const missingMessage = bookInfo.assetMissingMessage || 'EPUB 源文件缺失，请重新导入该书籍。';
+          setError(missingMessage);
+          await saveBookData(bookInfo.id, {
+            ...bookInfo,
+            assetMissing: true,
+            assetMissingMessage: missingMessage,
+          });
+          setLoading(false);
+          return;
+        }
+
+        const book = await createEpubBookFromBlob(asset.blob);
+        epubBookRef.current = book;
         if (isCancelled) return;
 
         const navigation = await book.loaded.navigation;
-        if (isCancelled) return;
-        setToc(navigation.toc);
+        const nextToc = Array.isArray(bookInfo.toc) && bookInfo.toc.length > 0
+          ? bookInfo.toc
+          : flattenEpubToc(navigation?.toc || []);
+
+        setToc(nextToc);
+
+        if (bookInfo.locationMap) {
+          book.locations.load(bookInfo.locationMap);
+        } else {
+          await book.locations.generate(1600);
+          if (isCancelled) return;
+
+          const nextLocationMap = book.locations.save();
+          await saveBookData(bookInfo.id, {
+            ...bookInfo,
+            toc: nextToc,
+            locationMap: nextLocationMap,
+            assetMissing: false,
+            assetMissingMessage: null,
+          });
+          if (isCancelled) return;
+
+          setBookMeta((current) => current ? {
+            ...current,
+            toc: nextToc,
+            locationMap: nextLocationMap,
+            assetMissing: false,
+            assetMissingMessage: null,
+          } : current);
+        }
 
         const savedProgress = await getReadingProgress(bookId);
         if (isCancelled) return;
@@ -563,10 +621,13 @@ function BookReader({
         }
 
         renditionRef.current.on('relocated', (location) => {
-          const percentage = book.locations.length > 0
-            ? book.locations.percentageFromCFI(location.start.cfi)
+          const percentage = book.locations.total > 0
+            ? book.locations.percentageFromCfi(location.start.cfi)
             : 0;
-          setCurrentLocation(location.start);
+          setCurrentLocation({
+            cfi: location.start.cfi,
+            percentage,
+          });
           onProgressUpdateRef.current?.({ cfi: location.start.cfi, percentage });
         });
 
@@ -583,6 +644,10 @@ function BookReader({
       if (renditionRef.current) {
         renditionRef.current.destroy();
         renditionRef.current = null;
+      }
+      if (epubBookRef.current) {
+        epubBookRef.current.destroy?.();
+        epubBookRef.current = null;
       }
     };
   }, [bookId, cancelPendingRestoreFrame, clearTxtProgressTimer]);
@@ -844,23 +909,25 @@ function BookReader({
             const isCollapsed = collapsedVolumes[vol.id];
             return (
               <div key={vol.id} className="toc-volume">
-                <div
+                <button
+                  type="button"
                   className={`toc-volume-title ${isCollapsed ? 'collapsed' : 'expanded'}`}
                   onClick={() => toggleVolume(vol.id)}
                 >
                   <span className="toc-arrow">{isCollapsed ? '▶' : '▼'}</span>
                   {vol.title}
-                </div>
+                </button>
                 {!isCollapsed && (
                   <div className="toc-chapters">
                     {vol.children.map((ch) => (
-                      <a
+                      <button
                         key={ch.id}
+                        type="button"
                         className={`toc-item toc-chapter ${flatChapters[currentChapterIndex]?.id === ch.id ? 'active' : ''}`}
                         onClick={() => handleTocClick(ch.id)}
                       >
                         {ch.title}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -874,13 +941,14 @@ function BookReader({
     return (
       <nav className="toc-list">
         {toc.map((item, index) => (
-          <a
+          <button
             key={item.href || index}
+            type="button"
             className="toc-item"
             onClick={() => handleTocClick(item.href)}
           >
             {item.label}
-          </a>
+          </button>
         ))}
       </nav>
     );
@@ -889,11 +957,15 @@ function BookReader({
   return (
     <div
       ref={readerContainerRef}
-      className={`reader-container ${isTxt ? 'txt-reader' : settings.theme} ${zenMode ? 'zen-mode' : ''}`}
+      className={`reader-container theme-${settings.theme} ${isTxt ? 'txt-reader' : ''} ${zenMode ? 'zen-mode' : ''}`}
       style={{ backgroundColor: settings.customBgColor || undefined }}
     >
       {loading ? (
         <div className="reader-loading">加载中...</div>
+      ) : error ? (
+        <div className="reader-status reader-status-error">
+          <p>{error}</p>
+        </div>
       ) : isTxt ? (
         <div
           ref={txtContentRef}
@@ -951,7 +1023,7 @@ function BookReader({
           <div className="progress-info">
             {isTxt
               ? flatChapters[currentChapterIndex]?.title
-              : (currentLocation && `${currentLocation.index + 1} / ${toc.length}`)}
+              : (currentLocation && `${Math.round((currentLocation.percentage || 0) * 100)}%`)}
           </div>
           {isTxt ? (
             <>

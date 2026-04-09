@@ -1,18 +1,38 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllBooks, getReadingProgress, removeBook, clearAllData, exportAllData, importAllData } from '../utils/storage';
+import {
+  getAllBooks,
+  getBookAsset,
+  getReadingProgress,
+  removeBook,
+  clearAllData,
+  exportAllData,
+  importAllData,
+} from '../utils/storage';
 
 function BookShelf() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
   const loadBooks = async () => {
+    setError('');
     const allBooks = await getAllBooks();
     const booksWithProgress = await Promise.all(
       allBooks.map(async (book) => {
-        const progress = await getReadingProgress(book.id);
-        return { ...book, progress };
+        const [progress, asset] = await Promise.all([
+          getReadingProgress(book.id),
+          getBookAsset(book.id),
+        ]);
+
+        return {
+          ...book,
+          progress,
+          assetMissing: book.assetMissing || !asset,
+          assetMissingMessage: book.assetMissingMessage || (!asset ? '源文件缺失，请重新导入。' : null),
+        };
       })
     );
     setBooks(booksWithProgress);
@@ -30,14 +50,16 @@ function BookShelf() {
   const handleDelete = async (bookId) => {
     if (window.confirm('确定要删除这本书吗？')) {
       await removeBook(bookId);
-      loadBooks();
+      await loadBooks();
+      setNotice('书籍已删除');
     }
   };
 
   const handleClearAll = async () => {
     if (window.confirm('确定要清除所有数据吗？此操作不可恢复。')) {
       await clearAllData();
-      window.location.reload();
+      setBooks([]);
+      setNotice('数据已清空');
     }
   };
 
@@ -51,8 +73,9 @@ function BookShelf() {
       a.download = `reader-backup-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      setNotice('备份已导出');
     } catch (err) {
-      alert('导出失败: ' + err.message);
+      setError('导出失败: ' + err.message);
     }
   };
 
@@ -68,17 +91,18 @@ function BookShelf() {
       const text = await file.text();
       const data = JSON.parse(text);
 
-      if (!data.version || !data.books) {
-        alert('无效的备份文件');
+      if (!data.books || !Array.isArray(data.books)) {
+        setError('无效的备份文件');
         return;
       }
 
       if (window.confirm(`将导入 ${data.books.length} 本书籍和设置，是否继续？`)) {
         await importAllData(data);
-        window.location.reload();
+        await loadBooks();
+        setNotice('备份已导入');
       }
     } catch (err) {
-      alert('导入失败: ' + err.message);
+      setError('导入失败: ' + err.message);
     }
 
     e.target.value = '';
@@ -103,6 +127,9 @@ function BookShelf() {
         hidden
       />
 
+      {notice && <div className="status-banner status-banner-success">{notice}</div>}
+      {error && <div className="status-banner status-banner-error">{error}</div>}
+
       {loading ? (
         <div className="loading">加载中...</div>
       ) : books.length === 0 ? (
@@ -126,6 +153,9 @@ function BookShelf() {
               <div className="book-info">
                 <h3 className="book-title">{book.title}</h3>
                 <p className="book-author">{book.author}</p>
+                {book.assetMissing && (
+                  <p className="book-warning">{book.assetMissingMessage}</p>
+                )}
                 {book.progress && book.progress.percentage > 0 && (
                   <div className="book-progress">
                     <div
@@ -139,9 +169,15 @@ function BookShelf() {
                 )}
               </div>
               <div className="book-actions">
-                <Link to={`/read/${book.id}`} className="btn-read">
-                  {book.progress?.percentage > 0 ? '继续阅读' : '开始阅读'}
-                </Link>
+                {book.assetMissing ? (
+                  <Link to="/import" className="btn-read btn-reimport">
+                    重新导入
+                  </Link>
+                ) : (
+                  <Link to={`/read/${book.id}`} className="btn-read">
+                    {book.progress?.percentage > 0 ? '继续阅读' : '开始阅读'}
+                  </Link>
+                )}
                 <button
                   className="btn-delete"
                   onClick={() => handleDelete(book.id)}

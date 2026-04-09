@@ -52,7 +52,6 @@ function Reader() {
           settings={settings}
           onProgressUpdate={handleProgressUpdate}
           onProgressFlush={handleProgressFlush}
-          onUpdateSettings={updateSettings}
           zenMode={zenMode}
           onToggleZenMode={toggleZenMode}
         />

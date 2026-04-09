@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { saveBookData, saveTxtContent } from '../utils/storage';
+import { IMPORT_FILE_ACCEPT, IMPORT_FILE_LABEL } from '../utils/book';
+import { saveBookAsset, saveBookRecord } from '../utils/storage';
 import { useBookParser } from '../hooks/useBookParser';
 
 function Import() {
@@ -10,28 +11,15 @@ function Import() {
 
   const handleFile = useCallback(async (file) => {
     const result = await parseFile(file);
-    if (result) {
-      const fileType = file.name.split('.').pop().toLowerCase();
+    if (!result) return;
 
-      await saveBookData(result.id, {
-        id: result.id,
-        title: result.title || file.name,
-        author: result.author || '未知作者',
-        type: fileType,
-        fileName: file.name,
-        addedAt: Date.now(),
-        cover: result.cover || null,
-        volumes: result.volumes || null,
-        flatChapters: result.flatChapters || null,
-      });
-
-      // TXT 文件需要保存完整内容用于按需提取章节
-      if (fileType === 'txt' && result.content) {
-        await saveTxtContent(result.id, result.content);
-      }
-
-      navigate(`/read/${result.id}`);
-    }
+    await saveBookRecord({
+      ...result.book,
+      assetMissing: false,
+      assetMissingMessage: null,
+    });
+    await saveBookAsset(result.book.id, result.asset);
+    navigate(`/read/${result.book.id}`);
   }, [parseFile, navigate]);
 
   const handleDrop = useCallback((e) => {
@@ -74,13 +62,13 @@ function Import() {
               选择文件
               <input
                 type="file"
-                accept=".txt,.epub,.mobi"
+                accept={IMPORT_FILE_ACCEPT}
                 onChange={handleFileInput}
                 hidden
               />
             </label>
             <p className="supported-formats">
-              支持格式: TXT, EPUB, MOBI
+              支持格式: {IMPORT_FILE_LABEL}
             </p>
           </>
         )}

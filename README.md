@@ -13,7 +13,7 @@
 | 格式 | 支持情况 |
 |------|----------|
 | TXT | 完整支持（含分章） |
-| EPUB | 完整支持 |
+| EPUB | 支持本地导入、目录导航与续读 |
 
 ### 阅读功能
 - **目录导航**：层级显示卷和章节
@@ -34,7 +34,7 @@
 
 ## 技术栈
 
-- **前端框架**：React 18 + Vite
+- **前端框架**：React 19 + Vite
 - **路由**：react-router-dom
 - **状态管理**：React Hooks (useState, useCallback, useRef)
 - **本地存储**：IndexedDB (via localforage)
