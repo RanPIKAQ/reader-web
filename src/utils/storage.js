@@ -13,6 +13,7 @@ import {
   normalizeBookAsset,
   progressStorage,
   settingsStorage,
+  statsStorage,
 } from './storageShared';
 import {
   deserializeAssetFromBackup,
@@ -247,6 +248,64 @@ export const getTxtContent = async (bookId) => {
 
   return null;
 };
+
+function createDefaultStats() {
+  return {
+    dailyMinutes: {},
+    completedBooks: 0,
+    completedBookIds: [],
+    lastActiveDate: null,
+  };
+}
+
+export async function getReadingStats() {
+  const stored = await statsStorage.getItem('readingStats');
+  if (!stored || typeof stored !== 'object') {
+    return createDefaultStats();
+  }
+
+  return {
+    ...createDefaultStats(),
+    ...stored,
+  };
+}
+
+export async function saveReadingStats(stats) {
+  await statsStorage.setItem('readingStats', stats);
+}
+
+export async function recordReadingMinutes(bookId, minutes) {
+  const stats = await getReadingStats();
+  const today = new Date().toISOString().slice(0, 10);
+
+  stats.dailyMinutes[today] = (stats.dailyMinutes[today] || 0) + minutes;
+  stats.lastActiveDate = today;
+
+  await saveReadingStats(stats);
+
+  try {
+    const currentBook = await getBookRecord(bookId);
+    if (currentBook) {
+      await patchBookRecord(bookId, {
+        totalReadingMinutes: (currentBook.totalReadingMinutes || 0) + minutes,
+      });
+    }
+  } catch {
+    // 不影响统计记录主流程
+  }
+}
+
+export async function markBookFinished(bookId) {
+  const stats = await getReadingStats();
+
+  if (!stats.completedBookIds.includes(bookId)) {
+    stats.completedBookIds.push(bookId);
+    stats.completedBooks = stats.completedBookIds.length;
+  }
+
+  await saveReadingStats(stats);
+  await patchBookRecord(bookId, { finishedAt: Date.now() });
+}
 
 export { DEFAULT_SETTINGS };
 export default booksStorage;

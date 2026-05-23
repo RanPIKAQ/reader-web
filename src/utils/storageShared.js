@@ -26,6 +26,11 @@ export const settingsStorage = localforage.createInstance({
   storeName: 'settings',
 });
 
+export const statsStorage = localforage.createInstance({
+  name: 'reader-web',
+  storeName: 'stats',
+});
+
 export const DEFAULT_SETTINGS = {
   fontSize: 18,
   fontFamily: 'Georgia, serif',
