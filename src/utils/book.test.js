@@ -83,5 +83,9 @@ describe('normalizeBookRecord', () => {
     expect(result.flatChapters).toEqual([]);
     expect(result.toc).toEqual([]);
     expect(result.cover).toBeNull();
+    expect(result.favorite).toBe(false);
+    expect(result.lastReadAt).toBeNull();
+    expect(result.finishedAt).toBeNull();
+    expect(result.totalReadingMinutes).toBe(0);
   });
 });

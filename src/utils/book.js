@@ -118,6 +118,10 @@ export function normalizeBookRecord(book) {
     locationMap: normalizeString(book.locationMap, null),
     assetMissing: Boolean(book.assetMissing),
     assetMissingMessage: normalizeString(book.assetMissingMessage, null),
+    favorite: Boolean(book.favorite),
+    lastReadAt: normalizeNumber(book.lastReadAt, null),
+    finishedAt: normalizeNumber(book.finishedAt, null),
+    totalReadingMinutes: normalizeNumber(book.totalReadingMinutes, 0),
   };
 }
 
