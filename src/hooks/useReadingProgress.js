@@ -6,15 +6,26 @@ export function useReadingProgress(bookId) {
   const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef(null);
   const latestProgressRef = useRef({ cfi: null, percentage: 0 });
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const loadProgress = useCallback(async () => {
     if (!bookId) return;
     const saved = await getReadingProgress(bookId);
+    if (!mountedRef.current) return;
     if (saved) {
       setProgress(saved);
       latestProgressRef.current = saved;
     }
-    setLoading(false);
+    if (mountedRef.current) {
+      setLoading(false);
+    }
   }, [bookId]);
 
   const updateProgress = useCallback((newProgress) => {
