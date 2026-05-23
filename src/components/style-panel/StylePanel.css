@@ -352,5 +352,81 @@
 
   .color-copy-btn {
     width: 100%;
-  }
+}
+
+.custom-fonts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.custom-font-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+}
+
+.custom-font-item.active {
+  border-color: var(--accent-color);
+  background: rgba(74, 144, 217, 0.08);
+}
+
+.custom-font-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.custom-font-preview {
+  font-size: 18px;
+  padding: 2px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  white-space: nowrap;
+}
+
+.custom-font-name {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.custom-font-remove {
+  color: #dc3545;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+}
+
+.custom-font-remove:hover {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.font-upload-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px dashed var(--accent-color);
+  border-radius: var(--border-radius-md);
+  color: var(--accent-color);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.font-upload-btn:hover {
+  background: rgba(74, 144, 217, 0.08);
+}
+
+.font-upload-hint {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
 }

@@ -6,6 +6,7 @@ import StylePanel from '../components/StylePanel';
 import { useSettings } from '../hooks/useSettings';
 import { useReadingProgress } from '../hooks/useReadingProgress';
 import { useReadingTimeTracker } from '../hooks/useReadingTimeTracker';
+import { useCustomFonts } from '../hooks/useCustomFonts';
 
 function Reader() {
   const { bookId } = useParams();
@@ -16,6 +17,7 @@ function Reader() {
   const [zenMode, setZenMode] = useState(false);
 
   useReadingTimeTracker(bookId);
+  useCustomFonts(settings.customFonts);
 
   const handleProgressUpdate = useCallback((newProgress) => {
     updateProgress(newProgress);
