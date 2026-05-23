@@ -23,7 +23,7 @@ function ReaderTocPanel({
           <h3>目录</h3>
           <button type="button" onClick={onClose}>×</button>
         </div>
-        {isTxt && volumes.length > 0 ? (
+        {isTxt && volumes?.length > 0 ? (
           <nav className="toc-list">
             <div className="toc-actions">
               <button type="button" className="toc-action-btn" onClick={onExpandAll}>全部展开</button>
