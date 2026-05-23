@@ -140,7 +140,7 @@ function BookShelf() {
                 {book.assetMissing && (
                   <p className="book-warning">{book.assetMissingMessage}</p>
                 )}
-                {book.progress && book.progress.percentage > 0 && (
+                {book.progress?.percentage > 0 && (
                   <div className="book-progress">
                     <div
                       className="progress-bar"
