@@ -155,24 +155,35 @@ export async function exportAllData() {
 export async function getBookshelfEntries() {
   const books = await getAllBookRecords();
 
-  return await Promise.all(
+  const results = await Promise.all(
     books.map(async (book) => {
-      const [progress, asset] = await Promise.all([
-        getReadingProgress(book.id),
-        getBookAsset(book.id),
-      ]);
-      const assetMissing = book.assetMissing || !asset;
+      try {
+        const [progress, asset] = await Promise.all([
+          getReadingProgress(book.id),
+          getBookAsset(book.id),
+        ]);
+        const assetMissing = book.assetMissing || !asset;
 
-      return {
-        ...book,
-        progress,
-        assetMissing,
-        assetMissingMessage: assetMissing
-          ? (book.assetMissingMessage || buildMissingAssetMessage(book.type))
-          : null,
-      };
+        return {
+          ...book,
+          progress,
+          assetMissing,
+          assetMissingMessage: assetMissing
+            ? (book.assetMissingMessage || buildMissingAssetMessage(book.type))
+            : null,
+        };
+      } catch {
+        return {
+          ...book,
+          progress: null,
+          assetMissing: true,
+          assetMissingMessage: buildMissingAssetMessage(book.type),
+        };
+      }
     })
   );
+
+  return results;
 }
 
 export async function importAllData(data) {
