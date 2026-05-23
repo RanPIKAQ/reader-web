@@ -86,17 +86,21 @@ export function deserializeAssetFromBackup(serializedAsset) {
   }
 
   if (serializedAsset.kind === 'epub' && typeof serializedAsset.dataBase64 === 'string') {
-    const bytes = base64ToUint8Array(serializedAsset.dataBase64);
+    try {
+      const bytes = base64ToUint8Array(serializedAsset.dataBase64);
 
-    return {
-      schemaVersion: BOOK_SCHEMA_VERSION,
-      bookId: serializedAsset.bookId,
-      kind: 'epub',
-      mimeType: serializedAsset.mimeType || 'application/epub+zip',
-      blob: new Blob([bytes], {
-        type: serializedAsset.mimeType || 'application/epub+zip',
-      }),
-    };
+      return {
+        schemaVersion: BOOK_SCHEMA_VERSION,
+        bookId: serializedAsset.bookId,
+        kind: 'epub',
+        mimeType: serializedAsset.mimeType || 'application/epub+zip',
+        blob: new Blob([bytes], {
+          type: serializedAsset.mimeType || 'application/epub+zip',
+        }),
+      };
+    } catch {
+      return null;
+    }
   }
 
   return null;
