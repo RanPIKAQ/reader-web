@@ -126,19 +126,28 @@ export async function exportAllData() {
   const progress = [];
 
   for (const book of books) {
-    const asset = await getBookAsset(book.id);
-    const serializedAsset = await serializeAssetForBackup(asset);
-    const bookProgress = await getReadingProgress(book.id);
+    try {
+      const asset = await getBookAsset(book.id);
+      const serializedAsset = await serializeAssetForBackup(asset);
 
-    if (serializedAsset) {
-      assets.push(serializedAsset);
+      if (serializedAsset) {
+        assets.push(serializedAsset);
+      }
+    } catch {
+      // 跳过损坏的资产，继续导出其他书籍
     }
 
-    if (bookProgress) {
-      progress.push({
-        bookId: book.id,
-        ...bookProgress,
-      });
+    try {
+      const bookProgress = await getReadingProgress(book.id);
+
+      if (bookProgress) {
+        progress.push({
+          bookId: book.id,
+          ...bookProgress,
+        });
+      }
+    } catch {
+      // 跳过损坏的进度记录
     }
   }
 
