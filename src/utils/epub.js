@@ -62,13 +62,14 @@ export function flattenEpubToc(items = []) {
 
 export async function parseEpubAsset(fileOrBlob, fallbackTitle = '未命名书籍') {
   const epubjs = await loadEpubJs();
-  const blob = fileOrBlob instanceof Blob
-    ? fileOrBlob
-    : new Blob([fileOrBlob], { type: 'application/epub+zip' });
-  const arrayBuffer = await blob.arrayBuffer();
-  const book = epubjs(arrayBuffer);
+  let book;
 
   try {
+    const blob = fileOrBlob instanceof Blob
+      ? fileOrBlob
+      : new Blob([fileOrBlob], { type: 'application/epub+zip' });
+    const arrayBuffer = await blob.arrayBuffer();
+    book = epubjs(arrayBuffer);
     await book.ready;
 
     const [metadata, navigation, cover] = await Promise.all([
@@ -83,15 +84,29 @@ export async function parseEpubAsset(fileOrBlob, fallbackTitle = '未命名书�
       toc: flattenEpubToc(navigation?.toc),
       cover,
     };
+  } catch {
+    return {
+      title: fallbackTitle,
+      author: '未知作者',
+      toc: [],
+      cover: null,
+    };
   } finally {
-    book.destroy?.();
+    book?.destroy?.();
   }
 }
 
 export async function createEpubBookFromBlob(blob) {
   const epubjs = await loadEpubJs();
-  const arrayBuffer = await blob.arrayBuffer();
-  const book = epubjs(arrayBuffer);
-  await book.ready;
-  return book;
+  let book;
+
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    book = epubjs(arrayBuffer);
+    await book.ready;
+    return book;
+  } catch {
+    book?.destroy?.();
+    throw new Error('EPUB 文件解析失败，请检查文件是否完整。');
+  }
 }
