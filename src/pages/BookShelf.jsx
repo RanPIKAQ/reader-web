@@ -57,15 +57,17 @@ function BookShelf() {
   const [sortBy, setSortBy] = useState('addedAt');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectMode, setSelectMode] = useState(false);
   const fileInputRef = useRef(null);
   const searchTimerRef = useRef(null);
 
-  const loadBooks = async () => {
+  const loadBooks = useCallback(async () => {
     setError('');
     const nextBooks = await getBookshelfEntries();
     setBooks(nextBooks);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     const initializeBookshelf = async () => {
@@ -73,7 +75,7 @@ function BookShelf() {
     };
 
     void initializeBookshelf();
-  }, []);
+  }, [loadBooks]);
 
   const filteredAndSorted = useMemo(() => {
     const filtered = filterBooks(books, searchQuery);
@@ -160,6 +162,44 @@ function BookShelf() {
     e.target.value = '';
   };
 
+  const handleToggleSelect = useCallback((bookId) => {
+    setSelectedIds((prev) =>
+      prev.includes(bookId)
+        ? prev.filter((id) => id !== bookId)
+        : [...prev, bookId]
+    );
+  }, []);
+
+  const handleEnterSelectMode = useCallback(() => {
+    setSelectMode(true);
+    setSelectedIds([]);
+  }, []);
+
+  const handleExitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds([]);
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.length === filteredAndSorted.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredAndSorted.map((book) => book.id));
+    }
+  }, [selectedIds.length, filteredAndSorted]);
+
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`确定要删除选中的 ${selectedIds.length} 本书籍吗？`)) return;
+
+    for (const bookId of selectedIds) {
+      await removeBook(bookId);
+    }
+    handleExitSelectMode();
+    await loadBooks();
+    setNotice(`已删除 ${selectedIds.length} 本书籍`);
+  }, [selectedIds, loadBooks, handleExitSelectMode]);
+
   const renderToolbar = books.length > 0 && (
     <div className="shelf-toolbar">
       <div className="search-box">
@@ -193,6 +233,14 @@ function BookShelf() {
         >
           {viewMode === 'grid' ? '列表' : '网格'}
         </button>
+        {!selectMode && (
+          <button
+            className="view-toggle-btn"
+            onClick={handleEnterSelectMode}
+          >
+            选择
+          </button>
+        )}
       </div>
     </div>
   );
@@ -220,6 +268,23 @@ function BookShelf() {
       {error && <div className="status-banner status-banner-error">{error}</div>}
 
       {renderToolbar}
+
+      {selectMode && (
+        <div className="batch-bar">
+          <button className="batch-action-btn" onClick={handleSelectAll}>
+            {selectedIds.length === filteredAndSorted.length ? '取消全选' : '全选'}
+          </button>
+          <span className="batch-count">
+            已选 {selectedIds.length} / {filteredAndSorted.length} 本
+          </span>
+          <button className="batch-delete-btn" onClick={handleBatchDelete}>
+            批量删除
+          </button>
+          <button className="batch-cancel-btn" onClick={handleExitSelectMode}>
+            取消选择
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading">加载中...</div>
@@ -249,6 +314,15 @@ function BookShelf() {
                 >
                   {book.favorite ? '★' : '☆'}
                 </button>
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    className="card-checkbox"
+                    checked={selectedIds.includes(book.id)}
+                    onChange={() => handleToggleSelect(book.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
               </div>
               <div className="book-info">
                 <h3 className="book-title">{book.title}</h3>
@@ -292,6 +366,14 @@ function BookShelf() {
         <div className="book-list">
           {filteredAndSorted.map((book) => (
             <div key={book.id} className="book-list-item">
+              {selectMode && (
+                <input
+                  type="checkbox"
+                  className="card-checkbox"
+                  checked={selectedIds.includes(book.id)}
+                  onChange={() => handleToggleSelect(book.id)}
+                />
+              )}
               <div className="list-item-cover">
                 {book.cover ? (
                   <img src={book.cover} alt={book.title} />
