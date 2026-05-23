@@ -14,17 +14,25 @@ export function useReaderBook(bookId) {
       setError('');
       setBookMeta(null);
 
-      const nextBookMeta = await getBookData(bookId);
-      if (isCancelled) return;
+      try {
+        const nextBookMeta = await getBookData(bookId);
+        if (isCancelled) return;
 
-      if (!nextBookMeta) {
-        setError('未找到对应书籍。');
-        setLoading(false);
-        return;
+        if (!nextBookMeta) {
+          setError('未找到对应书籍。');
+          return;
+        }
+
+        setBookMeta(nextBookMeta);
+      } catch {
+        if (!isCancelled) {
+          setError('加载书籍信息失败');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
-
-      setBookMeta(nextBookMeta);
-      setLoading(false);
     };
 
     void loadBookMeta();

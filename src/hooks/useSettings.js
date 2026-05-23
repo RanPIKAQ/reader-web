@@ -8,13 +8,18 @@ export function useSettings() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      const saved = await getSettings();
-      if (saved) {
-        const nextSettings = { ...DEFAULT_SETTINGS, ...saved };
-        settingsRef.current = nextSettings;
-        setSettings(nextSettings);
+      try {
+        const saved = await getSettings();
+        if (saved) {
+          const nextSettings = { ...DEFAULT_SETTINGS, ...saved };
+          settingsRef.current = nextSettings;
+          setSettings(nextSettings);
+        }
+      } catch {
+        // IndexedDB 读取失败时静默回退到默认设置
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadSettings();
   }, []);
