@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getBookData } from '../../utils/storage';
+import { getBookData, patchBookRecord } from '../../utils/storage';
 
 export function useReaderBook(bookId) {
   const [bookMeta, setBookMeta] = useState(null);
@@ -24,6 +24,7 @@ export function useReaderBook(bookId) {
         }
 
         setBookMeta(nextBookMeta);
+        void patchBookRecord(bookId, { lastReadAt: Date.now() }).catch(() => {});
       } catch {
         if (!isCancelled) {
           setError('加载书籍信息失败');

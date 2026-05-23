@@ -49,6 +49,14 @@ export async function getBookRecord(bookId) {
   return normalizeBookRecord(storedBook);
 }
 
+export async function patchBookRecord(bookId, patch) {
+  const stored = await getBookRecord(bookId);
+  if (!stored) return null;
+  const merged = normalizeBookRecord({ ...stored, ...patch });
+  await booksStorage.setItem(createBookStorageKey(merged.id), merged);
+  return merged;
+}
+
 export async function getAllBookRecords() {
   const books = [];
 
