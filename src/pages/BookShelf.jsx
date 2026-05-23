@@ -7,6 +7,7 @@ import {
   exportAllData,
   getBookshelfEntries,
   importAllData,
+  patchBookRecord,
 } from '../utils/storage';
 
 const SORT_OPTIONS = [
@@ -19,21 +20,22 @@ const SORT_OPTIONS = [
 function sortBooks(books, sortBy) {
   const sorted = [...books];
 
-  switch (sortBy) {
-    case 'title':
-      sorted.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
-      break;
-    case 'author':
-      sorted.sort((a, b) => a.author.localeCompare(b.author, 'zh'));
-      break;
-    case 'lastReadAt':
-      sorted.sort((a, b) => (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0));
-      break;
-    case 'addedAt':
-    default:
-      sorted.sort((a, b) => b.addedAt - a.addedAt);
-      break;
-  }
+  sorted.sort((a, b) => {
+    if (a.favorite && !b.favorite) return -1;
+    if (!a.favorite && b.favorite) return 1;
+
+    switch (sortBy) {
+      case 'title':
+        return a.title.localeCompare(b.title, 'zh');
+      case 'author':
+        return a.author.localeCompare(b.author, 'zh');
+      case 'lastReadAt':
+        return (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0);
+      case 'addedAt':
+      default:
+        return b.addedAt - a.addedAt;
+    }
+  });
 
   return sorted;
 }
@@ -95,6 +97,15 @@ function BookShelf() {
       setNotice('书籍已删除');
     }
   };
+
+  const handleToggleFavorite = useCallback(async (bookId, currentFavorite) => {
+    await patchBookRecord(bookId, { favorite: !currentFavorite });
+    setBooks((prev) =>
+      prev.map((book) =>
+        book.id === bookId ? { ...book, favorite: !currentFavorite } : book
+      )
+    );
+  }, []);
 
   const handleClearAll = async () => {
     if (window.confirm('确定要清除所有数据吗？此操作不可恢复。')) {
@@ -229,6 +240,15 @@ function BookShelf() {
                     <span>{book.title.charAt(0)}</span>
                   </div>
                 )}
+                <button
+                  className={`btn-favorite ${book.favorite ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleToggleFavorite(book.id, book.favorite);
+                  }}
+                >
+                  {book.favorite ? '★' : '☆'}
+                </button>
               </div>
               <div className="book-info">
                 <h3 className="book-title">{book.title}</h3>
@@ -291,6 +311,12 @@ function BookShelf() {
                 )}
               </div>
               <div className="list-item-actions">
+                <button
+                  className={`btn-favorite ${book.favorite ? 'active' : ''}`}
+                  onClick={() => void handleToggleFavorite(book.id, book.favorite)}
+                >
+                  {book.favorite ? '★' : '☆'}
+                </button>
                 {book.assetMissing ? (
                   <Link to="/import" className="btn-read btn-reimport">
                     重新导入
