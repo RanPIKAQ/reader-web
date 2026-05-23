@@ -181,81 +181,86 @@ export function useTxtReaderEngine({
       setLoading(true);
       setError('');
 
-      const asset = await getBookAsset(bookId);
-      if (isCancelled) return;
-
-      if (!asset || asset.kind !== 'txt' || typeof asset.text !== 'string') {
-        const missingMessage = bookMeta.assetMissingMessage || '书籍内容缺失，请重新导入该书籍。';
-        setError(missingMessage);
-        const nextBookMeta = {
-          ...bookMeta,
-          assetMissing: true,
-          assetMissingMessage: missingMessage,
-        };
-        await saveBookData(bookMeta.id, nextBookMeta);
+      try {
+        const asset = await getBookAsset(bookId);
         if (isCancelled) return;
-        setBookMeta(nextBookMeta);
-        setLoading(false);
-        return;
-      }
 
-      if (bookMeta.assetMissing || bookMeta.assetMissingMessage) {
-        const nextBookMeta = {
-          ...bookMeta,
-          assetMissing: false,
-          assetMissingMessage: null,
-        };
-        await saveBookData(bookMeta.id, nextBookMeta);
-        if (!isCancelled) {
+        if (!asset || asset.kind !== 'txt' || typeof asset.text !== 'string') {
+          const missingMessage = bookMeta.assetMissingMessage || '书籍内容缺失，请重新导入该书籍。';
+          setError(missingMessage);
+          const nextBookMeta = {
+            ...bookMeta,
+            assetMissing: true,
+            assetMissingMessage: missingMessage,
+          };
+          await saveBookData(bookMeta.id, nextBookMeta);
+          if (isCancelled) return;
           setBookMeta(nextBookMeta);
+          return;
         }
-      }
 
-      const text = asset.text;
-      const nextStructure = normalizeTxtStructure(bookMeta, text);
-      const initialCollapsed = createCollapsedVolumeState(nextStructure.volumes);
-
-      setFullText(text);
-      setFlatChapters(nextStructure.chapters);
-      setVolumes(nextStructure.volumes);
-      setToc(nextStructure.toc);
-      setCollapsedVolumes(initialCollapsed);
-
-      const savedProgress = await getReadingProgress(bookId);
-      if (isCancelled) return;
-
-      let startChapterIndex = 0;
-      let restoreMode = 'start';
-      let savedPosition = null;
-
-      if (savedProgress?.chapterId) {
-        const chapterIndex = nextStructure.chapters.findIndex((chapter) => chapter.id === savedProgress.chapterId);
-        if (chapterIndex >= 0) {
-          startChapterIndex = chapterIndex;
+        if (bookMeta.assetMissing || bookMeta.assetMissingMessage) {
+          const nextBookMeta = {
+            ...bookMeta,
+            assetMissing: false,
+            assetMissingMessage: null,
+          };
+          await saveBookData(bookMeta.id, nextBookMeta);
+          if (!isCancelled) {
+            setBookMeta(nextBookMeta);
+          }
         }
-      }
 
-      if (savedProgress?.txtPosition) {
-        restoreMode = 'saved';
-        savedPosition = savedProgress.txtPosition;
-      }
+        const text = asset.text;
+        const nextStructure = normalizeTxtStructure(bookMeta, text);
+        const initialCollapsed = createCollapsedVolumeState(nextStructure.volumes);
 
-      const chapter = nextStructure.chapters[startChapterIndex];
-      if (chapter) {
-        pendingTxtRestoreRef.current = {
-          mode: restoreMode,
-          savedPosition,
-          persistAfterRestore: false,
-        };
-        const content = getChapterContent(text, chapter);
-        setChapterLines(buildTxtLineMap(content));
-        currentChapterIndexRef.current = startChapterIndex;
-        setCurrentChapterIndex(startChapterIndex);
-      } else {
-        setChapterLines([]);
-      }
+        setFullText(text);
+        setFlatChapters(nextStructure.chapters);
+        setVolumes(nextStructure.volumes);
+        setToc(nextStructure.toc);
+        setCollapsedVolumes(initialCollapsed);
 
-      setLoading(false);
+        const savedProgress = await getReadingProgress(bookId);
+        if (isCancelled) return;
+
+        let startChapterIndex = 0;
+        let restoreMode = 'start';
+        let savedPosition = null;
+
+        if (savedProgress?.chapterId) {
+          const chapterIndex = nextStructure.chapters.findIndex((chapter) => chapter.id === savedProgress.chapterId);
+          if (chapterIndex >= 0) {
+            startChapterIndex = chapterIndex;
+          }
+        }
+
+        if (savedProgress?.txtPosition) {
+          restoreMode = 'saved';
+          savedPosition = savedProgress.txtPosition;
+        }
+
+        const chapter = nextStructure.chapters[startChapterIndex];
+        if (chapter) {
+          pendingTxtRestoreRef.current = {
+            mode: restoreMode,
+            savedPosition,
+            persistAfterRestore: false,
+          };
+          const content = getChapterContent(text, chapter);
+          setChapterLines(buildTxtLineMap(content));
+          currentChapterIndexRef.current = startChapterIndex;
+          setCurrentChapterIndex(startChapterIndex);
+        } else {
+          setChapterLines([]);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err.message || '加载失败，请重试。');
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
     void loadTxtBook();
