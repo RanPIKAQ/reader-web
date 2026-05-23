@@ -54,6 +54,7 @@ function BookShelf() {
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('addedAt');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
   const fileInputRef = useRef(null);
   const searchTimerRef = useRef(null);
 
@@ -175,6 +176,12 @@ function BookShelf() {
             </option>
           ))}
         </select>
+        <button
+          className="view-toggle-btn"
+          onClick={() => setViewMode((prev) => (prev === 'grid' ? 'list' : 'grid'))}
+        >
+          {viewMode === 'grid' ? '列表' : '网格'}
+        </button>
       </div>
     </div>
   );
@@ -210,7 +217,7 @@ function BookShelf() {
           <p>书架空空如也</p>
           <Link to="/import" className="btn-primary">导入第一本书</Link>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="book-grid">
           {filteredAndSorted.map((book) => (
             <div key={book.id} className="book-card">
@@ -242,6 +249,48 @@ function BookShelf() {
                 )}
               </div>
               <div className="book-actions">
+                {book.assetMissing ? (
+                  <Link to="/import" className="btn-read btn-reimport">
+                    重新导入
+                  </Link>
+                ) : (
+                  <Link to={`/read/${book.id}`} className="btn-read">
+                    {book.progress?.percentage > 0 ? '继续阅读' : '开始阅读'}
+                  </Link>
+                )}
+                <button
+                  className="btn-delete"
+                  onClick={() => handleDelete(book.id)}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="book-list">
+          {filteredAndSorted.map((book) => (
+            <div key={book.id} className="book-list-item">
+              <div className="list-item-cover">
+                {book.cover ? (
+                  <img src={book.cover} alt={book.title} />
+                ) : (
+                  <div className="book-cover-placeholder">
+                    <span>{book.title.charAt(0)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="list-item-info">
+                <h3 className="book-title">{book.title}</h3>
+                <p className="book-author">{book.author}</p>
+                {book.progress?.percentage > 0 && (
+                  <span className="progress-text">
+                    进度 {Math.round(book.progress.percentage)}%
+                  </span>
+                )}
+              </div>
+              <div className="list-item-actions">
                 {book.assetMissing ? (
                   <Link to="/import" className="btn-read btn-reimport">
                     重新导入
