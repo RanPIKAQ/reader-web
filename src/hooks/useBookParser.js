@@ -128,7 +128,10 @@ export function parseTxtChapters(text) {
 
 // 获取特定章节的内容
 export function getChapterContent(text, chapter) {
-  return text.substring(chapter.start, chapter.end);
+  const start = Math.max(0, chapter.start ?? 0);
+  const end = Math.min(text.length, chapter.end ?? text.length);
+  if (start >= end) return '';
+  return text.substring(start, end);
 }
 
 export function useBookParser() {
