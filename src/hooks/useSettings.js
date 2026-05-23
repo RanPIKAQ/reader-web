@@ -28,18 +28,25 @@ export function useSettings() {
     settingsRef.current = settings;
   }, [settings]);
 
-  const updateSettings = useCallback(async (newSettings) => {
+  const writeQueueRef = useRef(Promise.resolve());
+
+  const updateSettings = useCallback((newSettings) => {
     const nextSettings = { ...settingsRef.current, ...newSettings };
     settingsRef.current = nextSettings;
     setSettings(nextSettings);
 
-    await saveSettings(nextSettings);
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => saveSettings(nextSettings))
+      .catch(() => {});
   }, []);
 
-  const resetSettings = useCallback(async () => {
+  const resetSettings = useCallback(() => {
     settingsRef.current = DEFAULT_SETTINGS;
     setSettings(DEFAULT_SETTINGS);
-    await saveSettings(DEFAULT_SETTINGS);
+
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => saveSettings(DEFAULT_SETTINGS))
+      .catch(() => {});
   }, []);
 
   return { settings, updateSettings, resetSettings, loading };
