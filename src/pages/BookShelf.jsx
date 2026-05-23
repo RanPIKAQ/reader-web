@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import './BookShelf.css';
+import StatsPanel from '../components/StatsPanel';
 import {
   removeBook,
   clearAllData,
@@ -59,6 +60,7 @@ function BookShelf() {
   const [viewMode, setViewMode] = useState('grid');
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectMode, setSelectMode] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const fileInputRef = useRef(null);
   const searchTimerRef = useRef(null);
 
@@ -251,6 +253,7 @@ function BookShelf() {
         <h1>我的书架</h1>
         <div className="header-actions">
           <Link to="/import" className="btn-import-book">导入书籍</Link>
+          <button className="btn-export" onClick={() => setShowStats(true)}>阅读统计</button>
           <button className="btn-export" onClick={handleExport}>导出配置</button>
           <button className="btn-import" onClick={handleImport}>导入配置</button>
         </div>
@@ -427,6 +430,8 @@ function BookShelf() {
           </button>
         </div>
       )}
+
+      {showStats && <StatsPanel onClose={() => setShowStats(false)} />}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import BookReader from '../components/BookReader';
 import StylePanel from '../components/StylePanel';
 import { useSettings } from '../hooks/useSettings';
 import { useReadingProgress } from '../hooks/useReadingProgress';
+import { useReadingTimeTracker } from '../hooks/useReadingTimeTracker';
 
 function Reader() {
   const { bookId } = useParams();
@@ -13,6 +14,8 @@ function Reader() {
   const { updateProgress, flushProgress } = useReadingProgress(bookId);
   const [showStylePanel, setShowStylePanel] = useState(false);
   const [zenMode, setZenMode] = useState(false);
+
+  useReadingTimeTracker(bookId);
 
   const handleProgressUpdate = useCallback((newProgress) => {
     updateProgress(newProgress);

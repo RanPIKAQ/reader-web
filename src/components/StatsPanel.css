@@ -1,0 +1,131 @@
+.stats-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.stats-panel {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-lg);
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.stats-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stats-close-btn {
+  font-size: 22px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.stats-loading {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-secondary);
+}
+
+.stats-body {
+  padding: var(--spacing-lg);
+}
+
+.stats-summary {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.stat-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-md);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.stats-section {
+  margin-top: var(--spacing-lg);
+}
+
+.stats-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+}
+
+.stats-heatmap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.heatmap-header {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.heatmap-day-label {
+  width: 20px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 20px);
+  gap: 3px;
+}
+
+.heatmap-cell {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--spacing-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
