@@ -31,6 +31,20 @@ export const CONTENT_WIDTHS = [
   { label: '60%', value: 60 },
 ];
 
+export const PARAGRAPH_SPACINGS = [
+  { label: '无', value: 0 },
+  { label: '0.5em', value: 0.5 },
+  { label: '1em', value: 1 },
+  { label: '1.5em', value: 1.5 },
+];
+
+export const PARAGRAPH_INDENTS = [
+  { label: '无', value: 0 },
+  { label: '1em', value: 1 },
+  { label: '2em', value: 2 },
+  { label: '4em', value: 4 },
+];
+
 export const THEME_COLOR_MAP = {
   day: {
     text: '#333333',

@@ -87,6 +87,8 @@ function BookReader({
           chapterLines={txtEngine.chapterLines}
           currentChapterIndex={txtEngine.currentChapterIndex}
           readerStyle={txtEngine.readerStyle}
+          paragraphSpacing={settings.paragraphSpacing}
+          paragraphIndent={settings.paragraphIndent}
         />
       )}
 
