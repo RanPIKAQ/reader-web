@@ -43,6 +43,9 @@ export const DEFAULT_SETTINGS = {
   customBgColors: [],
   pageMode: 'scroll',
   contentWidth: 100,
+  customFonts: [],
+  paragraphSpacing: 0,
+  paragraphIndent: 0,
 };
 
 export function createBookStorageKey(bookId) {
