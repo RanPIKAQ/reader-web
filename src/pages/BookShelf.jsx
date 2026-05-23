@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import './BookShelf.css';
 import {
@@ -9,12 +9,53 @@ import {
   importAllData,
 } from '../utils/storage';
 
+const SORT_OPTIONS = [
+  { value: 'addedAt', label: '最近添加' },
+  { value: 'lastReadAt', label: '最近阅读' },
+  { value: 'title', label: '书名' },
+  { value: 'author', label: '作者' },
+];
+
+function sortBooks(books, sortBy) {
+  const sorted = [...books];
+
+  switch (sortBy) {
+    case 'title':
+      sorted.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
+      break;
+    case 'author':
+      sorted.sort((a, b) => a.author.localeCompare(b.author, 'zh'));
+      break;
+    case 'lastReadAt':
+      sorted.sort((a, b) => (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0));
+      break;
+    case 'addedAt':
+    default:
+      sorted.sort((a, b) => b.addedAt - a.addedAt);
+      break;
+  }
+
+  return sorted;
+}
+
+function filterBooks(books, query) {
+  if (!query.trim()) return books;
+  const keyword = query.toLowerCase();
+  return books.filter((book) =>
+    book.title.toLowerCase().includes(keyword) ||
+    book.author.toLowerCase().includes(keyword)
+  );
+}
+
 function BookShelf() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [sortBy, setSortBy] = useState('addedAt');
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef(null);
+  const searchTimerRef = useRef(null);
 
   const loadBooks = async () => {
     setError('');
@@ -29,6 +70,21 @@ function BookShelf() {
     };
 
     void initializeBookshelf();
+  }, []);
+
+  const filteredAndSorted = useMemo(() => {
+    const filtered = filterBooks(books, searchQuery);
+    return sortBooks(filtered, sortBy);
+  }, [books, searchQuery, sortBy]);
+
+  const handleSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    searchTimerRef.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 300);
   }, []);
 
   const handleDelete = async (bookId) => {
@@ -92,6 +148,37 @@ function BookShelf() {
     e.target.value = '';
   };
 
+  const renderToolbar = books.length > 0 && (
+    <div className="shelf-toolbar">
+      <div className="search-box">
+        <input
+          type="text"
+          placeholder="搜索书名或作者..."
+          onChange={handleSearchChange}
+          className="search-input"
+        />
+        {searchQuery && (
+          <span className="search-result-count">
+            {filteredAndSorted.length} / {books.length} 本
+          </span>
+        )}
+      </div>
+      <div className="sort-box">
+        <select
+          className="sort-select"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bookshelf">
       <header className="shelf-header">
@@ -114,6 +201,8 @@ function BookShelf() {
       {notice && <div className="status-banner status-banner-success">{notice}</div>}
       {error && <div className="status-banner status-banner-error">{error}</div>}
 
+      {renderToolbar}
+
       {loading ? (
         <div className="loading">加载中...</div>
       ) : books.length === 0 ? (
@@ -123,7 +212,7 @@ function BookShelf() {
         </div>
       ) : (
         <div className="book-grid">
-          {books.map((book) => (
+          {filteredAndSorted.map((book) => (
             <div key={book.id} className="book-card">
               <div className="book-cover">
                 {book.cover ? (
