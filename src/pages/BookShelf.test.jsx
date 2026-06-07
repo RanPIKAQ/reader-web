@@ -84,7 +84,7 @@ describe('BookShelf', () => {
 
     const { container } = renderBookShelf();
 
-    expect(await screen.findByText('书架空空如也')).toBeInTheDocument();
+    expect(await screen.findByText('还没有藏书')).toBeInTheDocument();
 
     const fileInput = container.querySelector('input[type="file"]');
     const invalidFile = new File(['{"invalid":true}'], 'backup.json', {
@@ -129,7 +129,7 @@ describe('BookShelf', () => {
       expect(removeBookMock).toHaveBeenCalledWith('txt_1');
     });
     await waitFor(() => {
-      expect(screen.getByText('书架空空如也')).toBeInTheDocument();
+      expect(screen.getByText('还没有藏书')).toBeInTheDocument();
     });
   });
 
@@ -156,6 +156,6 @@ describe('BookShelf', () => {
       expect(clearAllDataMock).toHaveBeenCalled();
     });
     expect(screen.getByText('数据已清空')).toBeInTheDocument();
-    expect(screen.getByText('书架空空如也')).toBeInTheDocument();
+    expect(screen.getByText('还没有藏书')).toBeInTheDocument();
   });
 });
