@@ -47,16 +47,16 @@ export const PARAGRAPH_INDENTS = [
 
 export const THEME_COLOR_MAP = {
   day: {
-    text: '#333333',
-    bg: '#FFFFFF',
+    text: '#24211D',
+    bg: '#F4EFE5',
   },
   night: {
-    text: '#E0E0E0',
-    bg: '#1A1A1A',
+    text: '#ECE4D4',
+    bg: '#171A16',
   },
   sepia: {
-    text: '#5B4636',
-    bg: '#F4ECD8',
+    text: '#4D3A2E',
+    bg: '#EFE4CE',
   },
 };
 

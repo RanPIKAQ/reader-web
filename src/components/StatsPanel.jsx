@@ -1,12 +1,12 @@
 import { useReadingStats } from '../hooks/useReadingStats';
 
 const HEAT_COLORS = [
-  'var(--bg-secondary)',
-  '#e8f0c8',
-  '#d0e8a0',
-  '#b8d878',
-  '#8cc848',
-  '#6ab830',
+  'var(--surface-muted)',
+  '#e7dfc8',
+  '#cbd7b6',
+  '#9fb89e',
+  '#5f7f61',
+  '#274d3a',
 ];
 
 function getHeatColor(minutes) {
@@ -73,7 +73,7 @@ function StatsPanel({ onClose }) {
     <div className="stats-overlay" onClick={onClose}>
       <div className="stats-panel" onClick={(e) => e.stopPropagation()}>
         <div className="stats-header">
-          <h2>阅读统计</h2>
+          <h2>阅读札记</h2>
           <button type="button" className="stats-close-btn" onClick={onClose}>×</button>
         </div>
 
