@@ -1,7 +1,8 @@
 :root {
   /* 字体族 */
-  --font-family-base: 'Georgia', 'Noto Serif SC', serif;
-  --font-family-sans: 'Helvetica Neue', 'Arial', sans-serif;
+  --font-family-base: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'Georgia', serif;
+  --font-family-sans: 'LXGW WenKai Screen', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif;
+  --font-family-ui: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif;
 
   /* 字号 */
   --font-size-small: 14px;
@@ -20,24 +21,56 @@
   --line-height-normal: 1.6;
   --line-height-relaxed: 1.8;
 
-  /* 颜色 - 白天模式 */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --accent-color: #4a90d9;
-  --border-color: #e0e0e0;
+  /* 文学编辑室色板 */
+  --ink-strong: #24211d;
+  --ink-muted: #746b5f;
+  --paper-base: #f4efe5;
+  --paper-raised: #fffaf1;
+  --paper-muted: #eae0d0;
+  --editorial-green: #274d3a;
+  --editorial-green-soft: #d9e4d8;
+  --editorial-copper: #a56b3f;
+  --editorial-red: #9b3a32;
+  --editorial-line: #d8cbbb;
+
+  /* 颜色 - 默认白天模式 */
+  --bg-primary: var(--paper-base);
+  --bg-secondary: var(--paper-raised);
+  --surface-paper: var(--paper-base);
+  --surface-raised: var(--paper-raised);
+  --surface-muted: var(--paper-muted);
+  --text-primary: var(--ink-strong);
+  --text-secondary: var(--ink-muted);
+  --text-muted: #9a8d7a;
+  --accent-color: var(--editorial-green);
+  --accent-secondary: var(--editorial-copper);
+  --accent-soft: var(--editorial-green-soft);
+  --danger-color: var(--editorial-red);
+  --border-color: var(--editorial-line);
+  --focus-ring: rgba(39, 77, 58, 0.22);
+  --paper-grain:
+    radial-gradient(circle at 18% 18%, rgba(165, 107, 63, 0.055) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 82% 26%, rgba(36, 33, 29, 0.035) 0 1px, transparent 1px 100%),
+    linear-gradient(135deg, rgba(255, 250, 241, 0.82), rgba(244, 239, 229, 0.94));
 
   /* 颜色 - 夜间模式 */
-  --bg-primary-dark: #1a1a1a;
-  --bg-secondary-dark: #2d2d2d;
-  --text-primary-dark: #e0e0e0;
-  --text-secondary-dark: #a0a0a0;
-  --border-color-dark: #404040;
+  --bg-primary-dark: #171a16;
+  --bg-secondary-dark: #20261f;
+  --surface-paper-dark: #1d211b;
+  --surface-raised-dark: #252b22;
+  --surface-muted-dark: #2e352b;
+  --text-primary-dark: #ece4d4;
+  --text-secondary-dark: #b6ab98;
+  --text-muted-dark: #8e8374;
+  --border-color-dark: #3c4437;
 
   /* 颜色 - 护眼模式 */
-  --bg-primary-sepia: #f4ecd8;
-  --text-primary-sepia: #5b4636;
+  --bg-primary-sepia: #efe4ce;
+  --bg-secondary-sepia: #fbf1db;
+  --surface-muted-sepia: #e0cfad;
+  --text-primary-sepia: #4d3a2e;
+  --text-secondary-sepia: #766150;
+  --border-color-sepia: #cdbb99;
 
   /* 间距 */
   --spacing-xs: 4px;
@@ -49,12 +82,13 @@
   /* 圆角 */
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
-  --border-radius-lg: 12px;
+  --border-radius-lg: 10px;
 
   /* 阴影 */
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 6px rgba(60, 45, 30, 0.08);
+  --shadow-md: 0 12px 28px rgba(60, 45, 30, 0.12);
+  --shadow-lg: 0 24px 60px rgba(39, 32, 24, 0.18);
+  --shadow-inset-paper: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 
   /* 过渡 */
   --transition-fast: 150ms ease;
@@ -63,25 +97,52 @@
 
 /* 主题类 */
 .theme-day {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --border-color: #e0e0e0;
+  --bg-primary: #f4efe5;
+  --bg-secondary: #fffaf1;
+  --surface-paper: #f4efe5;
+  --surface-raised: #fffaf1;
+  --surface-muted: #eae0d0;
+  --text-primary: #24211d;
+  --text-secondary: #746b5f;
+  --text-muted: #9a8d7a;
+  --accent-color: #274d3a;
+  --accent-secondary: #a56b3f;
+  --accent-soft: #d9e4d8;
+  --danger-color: #9b3a32;
+  --border-color: #d8cbbb;
+  --focus-ring: rgba(39, 77, 58, 0.22);
 }
 
 .theme-night {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --border-color: #404040;
+  --bg-primary: #171a16;
+  --bg-secondary: #252b22;
+  --surface-paper: #1d211b;
+  --surface-raised: #252b22;
+  --surface-muted: #2e352b;
+  --text-primary: #ece4d4;
+  --text-secondary: #b6ab98;
+  --text-muted: #8e8374;
+  --accent-color: #9fb89e;
+  --accent-secondary: #d2a170;
+  --accent-soft: rgba(159, 184, 158, 0.16);
+  --danger-color: #d17a70;
+  --border-color: #3c4437;
+  --focus-ring: rgba(159, 184, 158, 0.26);
 }
 
 .theme-sepia {
-  --bg-primary: #f4ecd8;
-  --bg-secondary: #e8dcc8;
-  --text-primary: #5b4636;
-  --text-secondary: #7a6555;
-  --border-color: #d4c4a8;
+  --bg-primary: #efe4ce;
+  --bg-secondary: #fbf1db;
+  --surface-paper: #efe4ce;
+  --surface-raised: #fbf1db;
+  --surface-muted: #e0cfad;
+  --text-primary: #4d3a2e;
+  --text-secondary: #766150;
+  --text-muted: #9c846a;
+  --accent-color: #34513b;
+  --accent-secondary: #9c6b3f;
+  --accent-soft: #d8ddc4;
+  --danger-color: #9b3a32;
+  --border-color: #cdbb99;
+  --focus-ring: rgba(52, 81, 59, 0.22);
 }

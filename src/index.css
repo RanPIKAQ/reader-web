@@ -10,10 +10,14 @@ html, body, #root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
+  font-family: var(--font-family-ui);
+  background-color: var(--bg-primary);
+  background-image: var(--paper-grain);
+  background-size: 18px 18px, 24px 24px, 100% 100%;
   color: var(--text-primary);
   line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -28,12 +32,39 @@ button {
   font-family: inherit;
 }
 
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(165, 107, 63, 0.24);
+}
+
 .app-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   color: var(--text-secondary);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 241, 0.76), rgba(244, 239, 229, 0.96)),
+    var(--paper-grain);
 }
 
 .loading {
@@ -45,10 +76,43 @@ button {
 .header-actions {
   display: flex;
   gap: var(--spacing-sm);
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-back {
+  min-height: 38px;
   padding: var(--spacing-sm) var(--spacing-md);
   color: var(--text-primary);
   font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  background: rgba(255, 250, 241, 0.6);
+  box-shadow: var(--shadow-inset-paper);
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.btn-back:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background: var(--surface-raised);
+}
+
+.btn-back:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }
