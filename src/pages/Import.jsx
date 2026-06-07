@@ -41,7 +41,11 @@ function Import() {
         <button onClick={() => navigate('/')} className="btn-back">
           返回书架
         </button>
-        <h1>导入书籍</h1>
+        <div>
+          <span className="import-kicker">Import Desk</span>
+          <h1>导入书籍</h1>
+          <p>把 TXT 或 EPUB 放到编辑桌上，解析完成后会自动进入阅读。</p>
+        </div>
       </header>
 
       <div
@@ -51,12 +55,14 @@ function Import() {
         onDrop={handleDrop}
       >
         {loading ? (
-          <div className="loading">正在解析书籍...</div>
+          <div className="loading">正在拆封书页...</div>
         ) : error ? (
           <div className="error">{error}</div>
         ) : (
           <>
-            <div className="drop-icon">📚</div>
+            <div className="drop-icon" aria-hidden="true">
+              <span />
+            </div>
             <p className="drop-text">拖拽书籍文件到这里</p>
             <p className="drop-hint">或</p>
             <label className="btn-select">

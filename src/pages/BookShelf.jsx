@@ -83,6 +83,14 @@ function BookShelf() {
     const filtered = filterBooks(books, searchQuery);
     return sortBooks(filtered, sortBy);
   }, [books, searchQuery, sortBy]);
+  const favoriteCount = useMemo(
+    () => books.filter((book) => book.favorite).length,
+    [books]
+  );
+  const readingCount = useMemo(
+    () => books.filter((book) => book.progress?.percentage > 0).length,
+    [books]
+  );
 
   const handleSearchChange = useCallback((e) => {
     const value = e.target.value;
@@ -250,7 +258,16 @@ function BookShelf() {
   return (
     <div className="bookshelf">
       <header className="shelf-header">
-        <h1>我的书架</h1>
+        <div className="shelf-title-group">
+          <span className="shelf-kicker">Reader Web</span>
+          <h1>我的书架</h1>
+          <p>整理本地藏书、续读进度与阅读札记。</p>
+          <div className="shelf-metrics" aria-label="书架统计">
+            <span><strong>{books.length}</strong> 本藏书</span>
+            <span><strong>{favoriteCount}</strong> 本收藏</span>
+            <span><strong>{readingCount}</strong> 本在读</span>
+          </div>
+        </div>
         <div className="header-actions">
           <Link to="/import" className="btn-import-book">导入书籍</Link>
           <button className="btn-export" onClick={() => setShowStats(true)}>阅读统计</button>
@@ -293,7 +310,9 @@ function BookShelf() {
         <div className="loading">加载中...</div>
       ) : books.length === 0 ? (
         <div className="empty-shelf">
-          <p>书架空空如也</p>
+          <span className="empty-kicker">私人藏书台</span>
+          <h2>还没有藏书</h2>
+          <p>导入一本 TXT 或 EPUB，开始建立你的本地阅读室。</p>
           <Link to="/import" className="btn-primary">导入第一本书</Link>
         </div>
       ) : viewMode === 'grid' ? (
@@ -305,6 +324,7 @@ function BookShelf() {
                   <img src={book.cover} alt={book.title} />
                 ) : (
                   <div className="book-cover-placeholder">
+                    <i aria-hidden="true" />
                     <span>{book.title.charAt(0)}</span>
                   </div>
                 )}
@@ -382,6 +402,7 @@ function BookShelf() {
                   <img src={book.cover} alt={book.title} />
                 ) : (
                   <div className="book-cover-placeholder">
+                    <i aria-hidden="true" />
                     <span>{book.title.charAt(0)}</span>
                   </div>
                 )}
